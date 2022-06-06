@@ -126,15 +126,18 @@ final class OpenSamlLogoutRequestResolver {
 		issuer.setValue(registration.getEntityId());
 		logoutRequest.setIssuer(issuer);
 		NameID nameId = this.nameIdBuilder.buildObject();
-		nameId.setValue(authentication.getName());
 		logoutRequest.setNameID(nameId);
 		Saml2AuthenticationInfo info = Saml2AuthenticationInfo.fromAuthentication(authentication);
 		if (info != null) {
+			nameId.setValue(info.getNameId());
 			for (String index : info.getSessionIndexes()) {
 				SessionIndex sessionIndex = this.sessionIndexBuilder.buildObject();
 				sessionIndex.setSessionIndex(index);
 				logoutRequest.getSessionIndexes().add(sessionIndex);
 			}
+		}
+		else {
+			nameId.setValue(authentication.getName());
 		}
 		logoutRequestConsumer.accept(registration, logoutRequest);
 		if (logoutRequest.getID() == null) {
