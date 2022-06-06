@@ -42,7 +42,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.saml2.Saml2Exception;
 import org.springframework.security.saml2.core.OpenSamlInitializationService;
 import org.springframework.security.saml2.core.Saml2ParameterNames;
-import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticationInfo;
 import org.springframework.security.saml2.provider.service.authentication.logout.Saml2LogoutRequest;
 import org.springframework.security.saml2.provider.service.registration.RelyingPartyRegistration;
 import org.springframework.security.saml2.provider.service.registration.Saml2MessageBinding;
@@ -128,9 +128,9 @@ final class OpenSamlLogoutRequestResolver {
 		NameID nameId = this.nameIdBuilder.buildObject();
 		nameId.setValue(authentication.getName());
 		logoutRequest.setNameID(nameId);
-		if (authentication.getPrincipal() instanceof Saml2AuthenticatedPrincipal) {
-			Saml2AuthenticatedPrincipal principal = (Saml2AuthenticatedPrincipal) authentication.getPrincipal();
-			for (String index : principal.getSessionIndexes()) {
+		Saml2AuthenticationInfo info = Saml2AuthenticationInfo.fromAuthentication(authentication);
+		if (info != null) {
+			for (String index : info.getSessionIndexes()) {
 				SessionIndex sessionIndex = this.sessionIndexBuilder.buildObject();
 				sessionIndex.setSessionIndex(index);
 				logoutRequest.getSessionIndexes().add(sessionIndex);
@@ -163,12 +163,9 @@ final class OpenSamlLogoutRequestResolver {
 		if (this.logger.isTraceEnabled()) {
 			this.logger.trace("Attempting to resolve registrationId from " + authentication);
 		}
-		if (authentication == null) {
-			return null;
-		}
-		Object principal = authentication.getPrincipal();
-		if (principal instanceof Saml2AuthenticatedPrincipal) {
-			return ((Saml2AuthenticatedPrincipal) principal).getRelyingPartyRegistrationId();
+		Saml2AuthenticationInfo info = Saml2AuthenticationInfo.fromAuthentication(authentication);
+		if (info != null) {
+			return info.getRelyingPartyRegistrationId();
 		}
 		return null;
 	}
