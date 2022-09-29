@@ -32,7 +32,7 @@ import org.springframework.security.config.annotation.web.configurers.AbstractHt
 import org.springframework.security.config.annotation.web.configurers.LogoutConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticationInfo;
 import org.springframework.security.saml2.provider.service.authentication.logout.OpenSamlLogoutRequestValidator;
 import org.springframework.security.saml2.provider.service.authentication.logout.OpenSamlLogoutResponseValidator;
 import org.springframework.security.saml2.provider.service.authentication.logout.Saml2LogoutRequestValidator;
@@ -467,10 +467,7 @@ public final class Saml2LogoutConfigurer<H extends HttpSecurityBuilder<H>>
 		@Override
 		public boolean matches(HttpServletRequest request) {
 			Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-			if (authentication == null) {
-				return false;
-			}
-			return authentication.getPrincipal() instanceof Saml2AuthenticatedPrincipal;
+			return Saml2AuthenticationInfo.fromAuthentication(authentication) != null;
 		}
 
 	}

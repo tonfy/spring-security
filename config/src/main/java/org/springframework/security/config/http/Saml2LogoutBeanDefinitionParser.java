@@ -32,7 +32,7 @@ import org.springframework.beans.factory.xml.BeanDefinitionParser;
 import org.springframework.beans.factory.xml.ParserContext;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticatedPrincipal;
+import org.springframework.security.saml2.provider.service.authentication.Saml2AuthenticationInfo;
 import org.springframework.security.saml2.provider.service.web.DefaultRelyingPartyRegistrationResolver;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutRequestFilter;
 import org.springframework.security.saml2.provider.service.web.authentication.logout.Saml2LogoutResponseFilter;
@@ -224,10 +224,7 @@ final class Saml2LogoutBeanDefinitionParser implements BeanDefinitionParser {
 		@Override
 		public boolean matches(HttpServletRequest request) {
 			Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-			if (authentication == null) {
-				return false;
-			}
-			return authentication.getPrincipal() instanceof Saml2AuthenticatedPrincipal;
+			return Saml2AuthenticationInfo.fromAuthentication(authentication) != null;
 		}
 
 	}
