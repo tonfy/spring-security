@@ -16,10 +16,6 @@
 
 package org.springframework.security.oauth2.jwt;
 
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 
@@ -50,10 +46,9 @@ public final class JwtValidators {
 	 * supplied
 	 */
 	public static OAuth2TokenValidator<Jwt> createDefaultWithIssuer(String issuer) {
-		List<OAuth2TokenValidator<Jwt>> validators = new ArrayList<>();
-		validators.add(new JwtTimestampValidator());
-		validators.add(new JwtIssuerValidator(issuer));
-		return new DelegatingOAuth2TokenValidator<>(validators);
+		JwtTimestampValidator jwtTimestampValidator = new JwtTimestampValidator();
+		JwtIssuerValidator jwtIssuerValidator = new JwtIssuerValidator(issuer);
+		return new DelegatingOAuth2TokenValidator<>(jwtTimestampValidator, jwtIssuerValidator);
 	}
 
 	/**
@@ -69,7 +64,7 @@ public final class JwtValidators {
 	 * supplied
 	 */
 	public static OAuth2TokenValidator<Jwt> createDefault() {
-		return new DelegatingOAuth2TokenValidator<>(Arrays.asList(new JwtTimestampValidator()));
+		return new DelegatingOAuth2TokenValidator<>(new JwtTimestampValidator());
 	}
 
 }
