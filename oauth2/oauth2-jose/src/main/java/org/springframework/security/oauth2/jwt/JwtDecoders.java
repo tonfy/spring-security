@@ -18,6 +18,8 @@ package org.springframework.security.oauth2.jwt;
 
 import java.util.Map;
 
+import com.nimbusds.jose.JOSEObjectType;
+import com.nimbusds.jose.proc.DefaultJOSEObjectTypeVerifier;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
 import org.springframework.util.Assert;
 
@@ -111,7 +113,16 @@ public final class JwtDecoders {
 		OAuth2TokenValidator<Jwt> jwtValidator = JwtValidators.createDefaultWithIssuer(issuer);
 		String jwkSetUri = configuration.get("jwks_uri").toString();
 		NimbusJwtDecoder jwtDecoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
-				.jwtProcessorCustomizer(JwtDecoderProviderConfigurationUtils::addJWSAlgorithms).build();
+				.jwtProcessorCustomizer(customizer -> {
+					customizer.setJWSTypeVerifier(new DefaultJOSEObjectTypeVerifier<>(
+							new JOSEObjectType("jwt"), // for compatibility
+							new JOSEObjectType("application/at+jwt"), // according to RFC-9068
+							new JOSEObjectType("at+jwt"), // according to RFC-9068
+							null
+					));
+					JwtDecoderProviderConfigurationUtils.addJWSAlgorithms(customizer);
+				})
+				.build();
 		jwtDecoder.setJwtValidator(jwtValidator);
 		return jwtDecoder;
 	}
