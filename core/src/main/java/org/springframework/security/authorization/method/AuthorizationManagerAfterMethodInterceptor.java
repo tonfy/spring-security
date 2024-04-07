@@ -32,6 +32,7 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationEventPublisher;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolderStrategy;
@@ -172,8 +173,9 @@ public final class AuthorizationManagerAfterMethodInterceptor implements Authori
 	private Object attemptAuthorization(MethodInvocation mi, Object result) {
 		this.logger.debug(LogMessage.of(() -> "Authorizing method invocation " + mi));
 		MethodInvocationResult object = new MethodInvocationResult(mi, result);
-		AuthorizationDecision decision = this.authorizationManager.check(this::getAuthentication, object);
-		this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, object, decision);
+		AuthorizationResult decision = this.authorizationManager.authorize(this::getAuthentication, object);
+		this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, object,
+				(AuthorizationDecision) decision);
 		if (decision != null && !decision.isGranted()) {
 			this.logger.debug(LogMessage.of(() -> "Failed to authorize " + mi + " with authorization manager "
 					+ this.authorizationManager + " and decision " + decision));
@@ -183,7 +185,7 @@ public final class AuthorizationManagerAfterMethodInterceptor implements Authori
 		return result;
 	}
 
-	private Object postProcess(MethodInvocationResult mi, AuthorizationDecision decision) {
+	private Object postProcess(MethodInvocationResult mi, AuthorizationResult decision) {
 		if (this.authorizationManager instanceof MethodAuthorizationDeniedPostProcessor postProcessableDecision) {
 			return postProcessableDecision.postProcessResult(mi, decision);
 		}

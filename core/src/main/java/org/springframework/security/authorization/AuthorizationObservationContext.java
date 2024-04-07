@@ -33,7 +33,7 @@ public class AuthorizationObservationContext<T> extends Observation.Context {
 
 	private final T object;
 
-	private AuthorizationDecision decision;
+	private AuthorizationResult decision;
 
 	public AuthorizationObservationContext(T object) {
 		Assert.notNull(object, "object cannot be null");
@@ -69,18 +69,18 @@ public class AuthorizationObservationContext<T> extends Observation.Context {
 	}
 
 	/**
-	 * Get the observed {@link AuthorizationDecision}
-	 * @return the observed {@link AuthorizationDecision}
+	 * Get the observed {@link AuthorizationResult}
+	 * @return the observed {@link AuthorizationResult}
 	 */
-	public AuthorizationDecision getDecision() {
+	public AuthorizationResult getDecision() {
 		return this.decision;
 	}
 
 	/**
-	 * Set the observed {@link AuthorizationDecision}
-	 * @param decision the observed {@link AuthorizationDecision}
+	 * Set the observed {@link AuthorizationResult}
+	 * @param decision the observed {@link AuthorizationResult}
 	 */
-	public void setDecision(AuthorizationDecision decision) {
+	public void setDecision(AuthorizationResult decision) {
 		this.decision = decision;
 	}
 

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -26,7 +26,7 @@ import org.springframework.util.Assert;
 
 /**
  * An {@link AuthorizationManager} that determines if the current user is authorized by
- * evaluating if the {@link Authentication} contains a specified authority.
+ * evaluating if the {@link AuthorizationResult} contains a specified authority.
  *
  * @param <T> the type of object being authorized.
  * @author Evgeniy Cheban
@@ -136,13 +136,14 @@ public final class AuthorityAuthorizationManager<T> implements AuthorizationMana
 	/**
 	 * Determines if the current user is authorized by evaluating if the
 	 * {@link Authentication} contains a specified authority.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param object the {@link T} object to check
-	 * @return an {@link AuthorizationDecision}
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param object the {@link T} object to authorize
+	 * @return an {@link AuthorizationResult}
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, T object) {
-		return this.delegate.check(authentication, this.authorities);
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, T object) {
+		return this.delegate.authorize(authentication, this.authorities);
 	}
 
 	@Override

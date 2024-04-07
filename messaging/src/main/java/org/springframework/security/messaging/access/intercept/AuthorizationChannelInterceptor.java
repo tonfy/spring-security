@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationEventPublisher;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolderStrategy;
@@ -66,8 +67,8 @@ public final class AuthorizationChannelInterceptor implements ChannelInterceptor
 	@Override
 	public Message<?> preSend(Message<?> message, MessageChannel channel) {
 		this.logger.debug(LogMessage.of(() -> "Authorizing message send"));
-		AuthorizationDecision decision = this.preSendAuthorizationManager.check(this.authentication, message);
-		this.eventPublisher.publishAuthorizationEvent(this.authentication, message, decision);
+		AuthorizationResult decision = this.preSendAuthorizationManager.authorize(this.authentication, message);
+		this.eventPublisher.publishAuthorizationEvent(this.authentication, message, (AuthorizationDecision) decision);
 		if (decision == null || !decision.isGranted()) { // default deny
 			this.logger.debug(LogMessage.of(() -> "Failed to authorize message with authorization manager "
 					+ this.preSendAuthorizationManager + " and decision " + decision));

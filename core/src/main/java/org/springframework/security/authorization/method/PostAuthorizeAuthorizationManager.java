@@ -24,7 +24,6 @@ import org.springframework.context.ApplicationContext;
 import org.springframework.expression.EvaluationContext;
 import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
 import org.springframework.security.access.prepost.PostAuthorize;
-import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
@@ -78,13 +77,14 @@ public final class PostAuthorizeAuthorizationManager
 	 * Determine if an {@link Authentication} has access to the returned object by
 	 * evaluating the {@link PostAuthorize} annotation that the {@link MethodInvocation}
 	 * specifies.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param mi the {@link MethodInvocationResult} to check
-	 * @return an {@link AuthorizationDecision} or {@code null} if the
-	 * {@link PostAuthorize} annotation is not present
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param mi the {@link MethodInvocationResult} to authorize
+	 * @return an {@link AuthorizationResult} or {@code null} if the {@link PostAuthorize}
+	 * annotation is not present
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, MethodInvocationResult mi) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, MethodInvocationResult mi) {
 		ExpressionAttribute attribute = this.registry.getAttribute(mi.getMethodInvocation());
 		if (attribute == ExpressionAttribute.NULL_ATTRIBUTE) {
 			return null;
@@ -92,7 +92,7 @@ public final class PostAuthorizeAuthorizationManager
 		MethodSecurityExpressionHandler expressionHandler = this.registry.getExpressionHandler();
 		EvaluationContext ctx = expressionHandler.createEvaluationContext(authentication, mi.getMethodInvocation());
 		expressionHandler.setReturnObject(mi.getResult(), ctx);
-		return (AuthorizationDecision) ExpressionUtils.evaluate(attribute.getExpression(), ctx);
+		return ExpressionUtils.evaluate(attribute.getExpression(), ctx);
 	}
 
 	@Override

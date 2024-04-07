@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -30,6 +30,7 @@ import org.springframework.security.authorization.AuthenticatedAuthorizationMana
 import org.springframework.security.authorization.AuthorityAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.web.util.matcher.AnyRequestMatcher;
 import org.springframework.security.web.util.matcher.RequestMatcher;
@@ -62,14 +63,15 @@ public final class RequestMatcherDelegatingAuthorizationManager implements Autho
 	/**
 	 * Delegates to a specific {@link AuthorizationManager} based on a
 	 * {@link RequestMatcher} evaluation.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param request the {@link HttpServletRequest} to check
-	 * @return an {@link AuthorizationDecision}. If there is no {@link RequestMatcher}
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param request the {@link HttpServletRequest} to authorize
+	 * @return an {@link AuthorizationResult}. If there is no {@link RequestMatcher}
 	 * matching the request, or the {@link AuthorizationManager} could not decide, then
 	 * null is returned
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, HttpServletRequest request) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, HttpServletRequest request) {
 		if (this.logger.isTraceEnabled()) {
 			this.logger.trace(LogMessage.format("Authorizing %s", request));
 		}
@@ -82,7 +84,7 @@ public final class RequestMatcherDelegatingAuthorizationManager implements Autho
 				if (this.logger.isTraceEnabled()) {
 					this.logger.trace(LogMessage.format("Checking authorization on %s using %s", request, manager));
 				}
-				return manager.check(authentication,
+				return manager.authorize(authentication,
 						new RequestAuthorizationContext(request, matchResult.getVariables()));
 			}
 		}

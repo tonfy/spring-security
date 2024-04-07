@@ -36,6 +36,7 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationEventPublisher;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.context.SecurityContextHolderStrategy;
@@ -245,8 +246,8 @@ public final class AuthorizationManagerBeforeMethodInterceptor implements Author
 
 	private Object attemptAuthorization(MethodInvocation mi) throws Throwable {
 		this.logger.debug(LogMessage.of(() -> "Authorizing method invocation " + mi));
-		AuthorizationDecision decision = this.authorizationManager.check(this::getAuthentication, mi);
-		this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, mi, decision);
+		AuthorizationResult decision = this.authorizationManager.authorize(this::getAuthentication, mi);
+		this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, mi, (AuthorizationDecision) decision);
 		if (decision != null && !decision.isGranted()) {
 			this.logger.debug(LogMessage.of(() -> "Failed to authorize " + mi + " with authorization manager "
 					+ this.authorizationManager + " and decision " + decision));
@@ -256,7 +257,7 @@ public final class AuthorizationManagerBeforeMethodInterceptor implements Author
 		return mi.proceed();
 	}
 
-	private Object handle(MethodInvocation mi, AuthorizationDecision decision) {
+	private Object handle(MethodInvocation mi, AuthorizationResult decision) {
 		if (this.authorizationManager instanceof MethodAuthorizationDeniedHandler handler) {
 			return handler.handle(mi, decision);
 		}

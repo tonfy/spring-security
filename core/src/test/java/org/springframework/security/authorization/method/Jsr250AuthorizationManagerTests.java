@@ -86,7 +86,7 @@ public class Jsr250AuthorizationManagerTests {
 				"ROLE_ADMIN");
 		AuthorizationDecision decision = manager.check(authentication, methodInvocation);
 		assertThat(decision).isNull();
-		verify(authoritiesAuthorizationManager).check(authentication, Set.of("ROLE_ADMIN"));
+		verify(authoritiesAuthorizationManager).authorize(authentication, Set.of("ROLE_ADMIN"));
 	}
 
 	@Test

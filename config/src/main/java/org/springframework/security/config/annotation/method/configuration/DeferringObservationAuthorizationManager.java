@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -22,7 +22,6 @@ import io.micrometer.observation.ObservationRegistry;
 import org.aopalliance.intercept.MethodInvocation;
 
 import org.springframework.beans.factory.ObjectProvider;
-import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
 import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.authorization.ObservationAuthorizationManager;
@@ -61,8 +60,8 @@ final class DeferringObservationAuthorizationManager<T>
 	}
 
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, T object) {
-		return this.delegate.get().check(authentication, object);
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, T object) {
+		return this.delegate.get().authorize(authentication, object);
 	}
 
 	@Override
