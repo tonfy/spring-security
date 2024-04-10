@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -91,7 +91,7 @@ public class AuthorizationFilterTests {
 	@Test
 	public void filterWhenAuthorizationManagerVerifyPassesThenNextFilter() throws Exception {
 		AuthorizationManager<HttpServletRequest> mockAuthorizationManager = mock(AuthorizationManager.class);
-		given(mockAuthorizationManager.check(any(Supplier.class), any(HttpServletRequest.class)))
+		given(mockAuthorizationManager.authorize(any(Supplier.class), any(HttpServletRequest.class)))
 			.willReturn(new AuthorizationDecision(true));
 		AuthorizationFilter filter = new AuthorizationFilter(mockAuthorizationManager);
 		TestingAuthenticationToken authenticationToken = new TestingAuthenticationToken("user", "password");
@@ -107,7 +107,7 @@ public class AuthorizationFilterTests {
 		filter.doFilter(mockRequest, mockResponse, mockFilterChain);
 
 		ArgumentCaptor<Supplier<Authentication>> authenticationCaptor = ArgumentCaptor.forClass(Supplier.class);
-		verify(mockAuthorizationManager).check(authenticationCaptor.capture(), eq(mockRequest));
+		verify(mockAuthorizationManager).authorize(authenticationCaptor.capture(), eq(mockRequest));
 		Supplier<Authentication> authentication = authenticationCaptor.getValue();
 		assertThat(authentication.get()).isEqualTo(authenticationToken);
 
@@ -130,14 +130,14 @@ public class AuthorizationFilterTests {
 		FilterChain mockFilterChain = mock(FilterChain.class);
 
 		willThrow(new AccessDeniedException("Access Denied")).given(mockAuthorizationManager)
-			.check(any(), eq(mockRequest));
+			.authorize(any(), eq(mockRequest));
 
 		assertThatExceptionOfType(AccessDeniedException.class)
 			.isThrownBy(() -> filter.doFilter(mockRequest, mockResponse, mockFilterChain))
 			.withMessage("Access Denied");
 
 		ArgumentCaptor<Supplier<Authentication>> authenticationCaptor = ArgumentCaptor.forClass(Supplier.class);
-		verify(mockAuthorizationManager).check(authenticationCaptor.capture(), eq(mockRequest));
+		verify(mockAuthorizationManager).authorize(authenticationCaptor.capture(), eq(mockRequest));
 		Supplier<Authentication> authentication = authenticationCaptor.getValue();
 		assertThat(authentication.get()).isEqualTo(authenticationToken);
 
@@ -203,7 +203,7 @@ public class AuthorizationFilterTests {
 		FilterChain mockFilterChain = mock(FilterChain.class);
 
 		authorizationFilter.doFilter(mockRequest, mockResponse, mockFilterChain);
-		verify(authorizationManager).check(any(Supplier.class), eq(mockRequest));
+		verify(authorizationManager).authorize(any(Supplier.class), eq(mockRequest));
 	}
 
 	@Test
@@ -233,7 +233,7 @@ public class AuthorizationFilterTests {
 	public void doFilterWhenObserveOncePerRequestTrueAndNotAppliedThenInvoked() throws ServletException, IOException {
 		this.filter.setObserveOncePerRequest(true);
 		this.filter.doFilter(this.request, this.response, this.chain);
-		verify(this.authorizationManager).check(any(), any());
+		verify(this.authorizationManager).authorize(any(), any());
 	}
 
 	@Test
@@ -241,14 +241,14 @@ public class AuthorizationFilterTests {
 		setIsAppliedTrue();
 		this.filter.setObserveOncePerRequest(false);
 		this.filter.doFilter(this.request, this.response, this.chain);
-		verify(this.authorizationManager).check(any(), any());
+		verify(this.authorizationManager).authorize(any(), any());
 	}
 
 	@Test
 	public void doFilterWhenObserveOncePerRequestFalseAndNotAppliedThenInvoked() throws ServletException, IOException {
 		this.filter.setObserveOncePerRequest(false);
 		this.filter.doFilter(this.request, this.response, this.chain);
-		verify(this.authorizationManager).check(any(), any());
+		verify(this.authorizationManager).authorize(any(), any());
 	}
 
 	@Test
@@ -264,7 +264,7 @@ public class AuthorizationFilterTests {
 		this.request.setDispatcherType(DispatcherType.ERROR);
 		this.filter.setFilterErrorDispatch(true);
 		this.filter.doFilter(this.request, this.response, this.chain);
-		verify(this.authorizationManager).check(any(), any());
+		verify(this.authorizationManager).authorize(any(), any());
 	}
 
 	@Test
@@ -287,7 +287,7 @@ public class AuthorizationFilterTests {
 		this.request.setDispatcherType(DispatcherType.ASYNC);
 		this.filter.setFilterAsyncDispatch(true);
 		this.filter.doFilter(this.request, this.response, this.chain);
-		verify(this.authorizationManager).check(any(), any());
+		verify(this.authorizationManager).authorize(any(), any());
 	}
 
 	@Test

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -33,6 +33,7 @@ import org.springframework.security.authentication.AuthenticationCredentialsNotF
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationEventPublisher;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.authorization.event.AuthorizationDeniedEvent;
 import org.springframework.security.authorization.event.AuthorizationGrantedEvent;
 import org.springframework.security.core.Authentication;
@@ -92,8 +93,9 @@ public class AuthorizationFilter extends GenericFilterBean {
 		String alreadyFilteredAttributeName = getAlreadyFilteredAttributeName();
 		request.setAttribute(alreadyFilteredAttributeName, Boolean.TRUE);
 		try {
-			AuthorizationDecision decision = this.authorizationManager.check(this::getAuthentication, request);
-			this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, request, decision);
+			AuthorizationResult decision = this.authorizationManager.authorize(this::getAuthentication, request);
+			this.eventPublisher.publishAuthorizationEvent(this::getAuthentication, request,
+					(AuthorizationDecision) decision);
 			if (decision != null && !decision.isGranted()) {
 				throw new AccessDeniedException("Access Denied");
 			}

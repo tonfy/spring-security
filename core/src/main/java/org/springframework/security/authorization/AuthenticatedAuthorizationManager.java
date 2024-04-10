@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -106,12 +106,13 @@ public final class AuthenticatedAuthorizationManager<T> implements Authorization
 
 	/**
 	 * Determines if the current user is authorized according to the given strategy.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param object the {@link T} object to check
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param object the {@link T} object to authorize
 	 * @return an {@link AuthorizationDecision}
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, T object) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, T object) {
 		boolean granted = this.authorizationStrategy.isGranted(authentication.get());
 		return new AuthorizationDecision(granted);
 	}

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2023 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -56,9 +56,9 @@ public final class AuthorizationManagers {
 	public static <T> AuthorizationManager<T> anyOf(AuthorizationDecision allAbstainDefaultDecision,
 			AuthorizationManager<T>... managers) {
 		return (authentication, object) -> {
-			List<AuthorizationDecision> decisions = new ArrayList<>();
+			List<AuthorizationResult> decisions = new ArrayList<>();
 			for (AuthorizationManager<T> manager : managers) {
-				AuthorizationDecision decision = manager.check(authentication, object);
+				AuthorizationResult decision = manager.authorize(authentication, object);
 				if (decision == null) {
 					continue;
 				}
@@ -102,9 +102,9 @@ public final class AuthorizationManagers {
 	public static <T> AuthorizationManager<T> allOf(AuthorizationDecision allAbstainDefaultDecision,
 			AuthorizationManager<T>... managers) {
 		return (authentication, object) -> {
-			List<AuthorizationDecision> decisions = new ArrayList<>();
+			List<AuthorizationResult> decisions = new ArrayList<>();
 			for (AuthorizationManager<T> manager : managers) {
-				AuthorizationDecision decision = manager.check(authentication, object);
+				AuthorizationResult decision = manager.authorize(authentication, object);
 				if (decision == null) {
 					continue;
 				}
@@ -131,7 +131,7 @@ public final class AuthorizationManagers {
 	 */
 	public static <T> AuthorizationManager<T> not(AuthorizationManager<T> manager) {
 		return (authentication, object) -> {
-			AuthorizationDecision decision = manager.check(authentication, object);
+			AuthorizationResult decision = manager.authorize(authentication, object);
 			if (decision == null) {
 				return null;
 			}
@@ -144,9 +144,9 @@ public final class AuthorizationManagers {
 
 	private static final class CompositeAuthorizationDecision extends AuthorizationDecision {
 
-		private final List<AuthorizationDecision> decisions;
+		private final List<AuthorizationResult> decisions;
 
-		private CompositeAuthorizationDecision(boolean granted, List<AuthorizationDecision> decisions) {
+		private CompositeAuthorizationDecision(boolean granted, List<AuthorizationResult> decisions) {
 			super(granted);
 			this.decisions = decisions;
 		}
@@ -160,9 +160,9 @@ public final class AuthorizationManagers {
 
 	private static final class NotAuthorizationDecision extends AuthorizationDecision {
 
-		private final AuthorizationDecision decision;
+		private final AuthorizationResult decision;
 
-		private NotAuthorizationDecision(AuthorizationDecision decision) {
+		private NotAuthorizationDecision(AuthorizationResult decision) {
 			super(!decision.isGranted());
 			this.decision = decision;
 		}

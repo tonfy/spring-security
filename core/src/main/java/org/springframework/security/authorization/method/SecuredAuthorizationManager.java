@@ -30,8 +30,8 @@ import org.springframework.aop.support.AopUtils;
 import org.springframework.core.MethodClassKey;
 import org.springframework.security.access.annotation.Secured;
 import org.springframework.security.authorization.AuthoritiesAuthorizationManager;
-import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.Assert;
 
@@ -66,15 +66,17 @@ public final class SecuredAuthorizationManager implements AuthorizationManager<M
 	/**
 	 * Determine if an {@link Authentication} has access to a method by evaluating the
 	 * {@link Secured} annotation that {@link MethodInvocation} specifies.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param mi the {@link MethodInvocation} to check
-	 * @return an {@link AuthorizationDecision} or null if the {@link Secured} annotation
-	 * is not present
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param mi the {@link MethodInvocation} to authorize
+	 * @return an {@link AuthorizationResult} or null if the {@link Secured} annotation is
+	 * not present
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, MethodInvocation mi) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, MethodInvocation mi) {
 		Set<String> authorities = getAuthorities(mi);
-		return authorities.isEmpty() ? null : this.authoritiesAuthorizationManager.check(authentication, authorities);
+		return authorities.isEmpty() ? null
+				: this.authoritiesAuthorizationManager.authorize(authentication, authorities);
 	}
 
 	private Set<String> getAuthorities(MethodInvocation methodInvocation) {

@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -50,13 +50,13 @@ public final class AuthoritiesAuthorizationManager implements AuthorizationManag
 	/**
 	 * Determines if the current user is authorized by evaluating if the
 	 * {@link Authentication} contains any of specified authorities.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param authorities the collection of authority strings to check
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param authorities the collection of authority strings to authorize
 	 * @return an {@link AuthorityAuthorizationDecision}
 	 */
 	@Override
-	public AuthorityAuthorizationDecision check(Supplier<Authentication> authentication,
-			Collection<String> authorities) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, Collection<String> authorities) {
 		boolean granted = isGranted(authentication.get(), authorities);
 		return new AuthorityAuthorizationDecision(granted, AuthorityUtils.createAuthorityList(authorities));
 	}

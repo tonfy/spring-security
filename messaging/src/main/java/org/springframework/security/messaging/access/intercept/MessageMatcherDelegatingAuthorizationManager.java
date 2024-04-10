@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ import org.springframework.security.authorization.AuthenticatedAuthorizationMana
 import org.springframework.security.authorization.AuthorityAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.messaging.util.matcher.MessageMatcher;
 import org.springframework.security.messaging.util.matcher.SimpDestinationMessageMatcher;
@@ -55,14 +56,15 @@ public final class MessageMatcherDelegatingAuthorizationManager implements Autho
 	/**
 	 * Delegates to a specific {@link AuthorizationManager} based on a
 	 * {@link MessageMatcher} evaluation.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param message the {@link Message} to check
-	 * @return an {@link AuthorizationDecision}. If there is no {@link MessageMatcher}
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param message the {@link Message} to authorize
+	 * @return an {@link AuthorizationResult}. If there is no {@link MessageMatcher}
 	 * matching the message, or the {@link AuthorizationManager} could not decide, then
 	 * null is returned
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, Message<?> message) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, Message<?> message) {
 		if (this.logger.isTraceEnabled()) {
 			this.logger.trace(LogMessage.format("Authorizing message"));
 		}
@@ -74,7 +76,7 @@ public final class MessageMatcherDelegatingAuthorizationManager implements Autho
 				if (this.logger.isTraceEnabled()) {
 					this.logger.trace(LogMessage.format("Checking authorization on message using %s", manager));
 				}
-				return manager.check(authentication, authorizationContext);
+				return manager.authorize(authentication, authorizationContext);
 			}
 		}
 		this.logger.trace("Abstaining since did not find matching MessageMatcher");

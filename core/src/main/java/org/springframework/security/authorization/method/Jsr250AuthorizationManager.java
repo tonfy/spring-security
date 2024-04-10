@@ -34,6 +34,7 @@ import org.springframework.lang.NonNull;
 import org.springframework.security.authorization.AuthoritiesAuthorizationManager;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 import org.springframework.util.Assert;
 
@@ -89,15 +90,16 @@ public final class Jsr250AuthorizationManager implements AuthorizationManager<Me
 	 * Determine if an {@link Authentication} has access to a method by evaluating the
 	 * {@link DenyAll}, {@link PermitAll}, and {@link RolesAllowed} annotations that
 	 * {@link MethodInvocation} specifies.
-	 * @param authentication the {@link Supplier} of the {@link Authentication} to check
-	 * @param methodInvocation the {@link MethodInvocation} to check
-	 * @return an {@link AuthorizationDecision} or null if the JSR-250 security
-	 * annotations is not present
+	 * @param authentication the {@link Supplier} of the {@link Authentication} to
+	 * authorize
+	 * @param methodInvocation the {@link MethodInvocation} to authorize
+	 * @return an {@link AuthorizationResult} or null if the JSR-250 security annotations
+	 * is not present
 	 */
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, MethodInvocation methodInvocation) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, MethodInvocation methodInvocation) {
 		AuthorizationManager<MethodInvocation> delegate = this.registry.getManager(methodInvocation);
-		return delegate.check(authentication, methodInvocation);
+		return delegate.authorize(authentication, methodInvocation);
 	}
 
 	private final class Jsr250AuthorizationManagerRegistry extends AbstractAuthorizationManagerRegistry {
@@ -113,7 +115,7 @@ public final class Jsr250AuthorizationManager implements AuthorizationManager<Me
 				return (a, o) -> new AuthorizationDecision(true);
 			}
 			if (annotation instanceof RolesAllowed rolesAllowed) {
-				return (a, o) -> Jsr250AuthorizationManager.this.authoritiesAuthorizationManager.check(a,
+				return (a, o) -> Jsr250AuthorizationManager.this.authoritiesAuthorizationManager.authorize(a,
 						getAllowedRolesWithPrefix(rolesAllowed));
 			}
 			return NULL_MANAGER;

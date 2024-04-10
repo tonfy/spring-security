@@ -32,6 +32,7 @@ import org.springframework.security.authentication.TestAuthentication;
 import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -62,9 +63,9 @@ public class SecuredAuthorizationManagerTests {
 		MockMethodInvocation methodInvocation = new MockMethodInvocation(new TestClass(), TestClass.class,
 				"securedUserOrAdmin");
 		Supplier<Authentication> authentication = TestAuthentication::authenticatedUser;
-		AuthorizationDecision decision = manager.check(authentication, methodInvocation);
+		AuthorizationResult decision = manager.authorize(authentication, methodInvocation);
 		assertThat(decision).isNull();
-		verify(authoritiesAuthorizationManager).check(authentication, Set.of("ROLE_USER", "ROLE_ADMIN"));
+		verify(authoritiesAuthorizationManager).authorize(authentication, Set.of("ROLE_USER", "ROLE_ADMIN"));
 	}
 
 	@Test

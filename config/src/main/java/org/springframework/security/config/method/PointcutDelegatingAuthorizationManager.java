@@ -1,5 +1,5 @@
 /*
- * Copyright 2002-2022 the original author or authors.
+ * Copyright 2002-2024 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -25,6 +25,7 @@ import org.springframework.aop.Pointcut;
 import org.springframework.aop.support.AopUtils;
 import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.AuthorizationManager;
+import org.springframework.security.authorization.AuthorizationResult;
 import org.springframework.security.core.Authentication;
 
 class PointcutDelegatingAuthorizationManager implements AuthorizationManager<MethodInvocation> {
@@ -36,12 +37,12 @@ class PointcutDelegatingAuthorizationManager implements AuthorizationManager<Met
 	}
 
 	@Override
-	public AuthorizationDecision check(Supplier<Authentication> authentication, MethodInvocation object) {
+	public AuthorizationResult authorize(Supplier<Authentication> authentication, MethodInvocation object) {
 		for (Map.Entry<Pointcut, AuthorizationManager<MethodInvocation>> entry : this.managers.entrySet()) {
 			Class<?> targetClass = (object.getThis() != null) ? AopUtils.getTargetClass(object.getThis()) : null;
 			if (entry.getKey().getClassFilter().matches(targetClass)
 					&& entry.getKey().getMethodMatcher().matches(object.getMethod(), targetClass)) {
-				return entry.getValue().check(authentication, object);
+				return entry.getValue().authorize(authentication, object);
 			}
 		}
 		return new AuthorizationDecision(false);
