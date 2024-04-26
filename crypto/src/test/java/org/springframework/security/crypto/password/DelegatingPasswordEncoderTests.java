@@ -193,7 +193,7 @@ public class DelegatingPasswordEncoderTests {
 	public void matchesWhenUnMappedThenIllegalArgumentException() {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> this.passwordEncoder.matches(this.rawPassword, "{unmapped}" + this.rawPassword))
-			.withMessage("There is no PasswordEncoder mapped for the id \"unmapped\"");
+			.withMessage("There is no password encoder mapped for the id 'unmapped'. Check your configuration to ensure it matches one of the registered encoders.");
 		verifyNoMoreInteractions(this.bcrypt, this.noop);
 	}
 
@@ -201,7 +201,7 @@ public class DelegatingPasswordEncoderTests {
 	public void matchesWhenNoClosingPrefixStringThenIllegalArgumentException() {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> this.passwordEncoder.matches(this.rawPassword, "{bcrypt" + this.rawPassword))
-			.withMessage("There is no PasswordEncoder mapped for the id \"null\"");
+			.withMessage("The name of the password encoder is improperly formatted or incomplete. The format should be '{ENCODER}password'.");
 		verifyNoMoreInteractions(this.bcrypt, this.noop);
 	}
 
@@ -209,7 +209,7 @@ public class DelegatingPasswordEncoderTests {
 	public void matchesWhenNoStartingPrefixStringThenFalse() {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> this.passwordEncoder.matches(this.rawPassword, "bcrypt}" + this.rawPassword))
-			.withMessage("There is no PasswordEncoder mapped for the id \"null\"");
+			.withMessage("The name of the password encoder is improperly formatted or incomplete. The format should be '{ENCODER}password'.");
 		verifyNoMoreInteractions(this.bcrypt, this.noop);
 	}
 
@@ -217,7 +217,7 @@ public class DelegatingPasswordEncoderTests {
 	public void matchesWhenNoIdStringThenFalse() {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> this.passwordEncoder.matches(this.rawPassword, "{}" + this.rawPassword))
-			.withMessage("There is no PasswordEncoder mapped for the id \"\"");
+			.withMessage("The name of the password encoder is improperly formatted or incomplete. The format should be '{ENCODER}password'.");
 		verifyNoMoreInteractions(this.bcrypt, this.noop);
 	}
 
@@ -226,7 +226,7 @@ public class DelegatingPasswordEncoderTests {
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> this.passwordEncoder.matches(this.rawPassword, "invalid" + this.bcryptEncodedPassword))
 			.isInstanceOf(IllegalArgumentException.class)
-			.withMessage("There is no PasswordEncoder mapped for the id \"null\"");
+			.withMessage("The name of the password encoder is improperly formatted or incomplete. The format should be '{ENCODER}password'.");
 		verifyNoMoreInteractions(this.bcrypt, this.noop);
 	}
 
@@ -236,7 +236,7 @@ public class DelegatingPasswordEncoderTests {
 		DelegatingPasswordEncoder passwordEncoder = new DelegatingPasswordEncoder(this.bcryptId, this.delegates);
 		assertThatIllegalArgumentException()
 			.isThrownBy(() -> passwordEncoder.matches(this.rawPassword, this.rawPassword))
-			.withMessage("There is no PasswordEncoder mapped for the id \"null\"");
+			.withMessage("Password encoding information cannot be null. If no encoding is intended, ensure it is prefixed with '{noop}'.");
 		verifyNoMoreInteractions(this.bcrypt, this.noop);
 	}
 

@@ -245,12 +245,12 @@ public class DelegatingPasswordEncoder implements PasswordEncoder {
 			return null;
 		}
 		int start = prefixEncodedPassword.indexOf(this.idPrefix);
-		if (start != 0) {
+		if (start == -1 && !prefixEncodedPassword.contains(this.idSuffix)) {
 			return null;
 		}
-		int end = prefixEncodedPassword.indexOf(this.idSuffix, start);
-		if (end < 0) {
-			return null;
+		int end = prefixEncodedPassword.indexOf(this.idSuffix, start + this.idPrefix.length());
+		if (start != 0 || end == -1) {
+			return "";
 		}
 		return prefixEncodedPassword.substring(start + this.idPrefix.length(), end);
 	}
@@ -286,7 +286,16 @@ public class DelegatingPasswordEncoder implements PasswordEncoder {
 		@Override
 		public boolean matches(CharSequence rawPassword, String prefixEncodedPassword) {
 			String id = extractId(prefixEncodedPassword);
-			throw new IllegalArgumentException("There is no PasswordEncoder mapped for the id \"" + id + "\"");
+			if (id == null) {
+				throw new IllegalArgumentException("Password encoding information cannot be null. " +
+						"If no encoding is intended, ensure it is prefixed with '{noop}'.");
+			} else if (id.isEmpty()) {
+				throw new IllegalArgumentException(String.format("The name of the password encoder is improperly "
+						+ "formatted or incomplete. The format should be '%sENCODER%spassword'.", idPrefix, idSuffix));
+			} else {
+				throw new IllegalArgumentException(String.format("There is no password encoder mapped for the id '%s'. " +
+						"Check your configuration to ensure it matches one of the registered encoders.", id));
+			}
 		}
 
 	}
