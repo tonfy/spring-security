@@ -219,6 +219,23 @@ public class OidcLogoutConfigurerTests {
 	}
 
 	@Test
+	void logoutWhenSelfRemoteLogoutUriThenUses() throws Exception {
+		this.spring.register(WebServerConfig.class, OidcProviderConfig.class, SelfLogoutUriConfig.class).autowire();
+		String registrationId = this.clientRegistration.getRegistrationId();
+		MockHttpSession session = login();
+		String logoutToken = this.mvc.perform(get("/token/logout").session(session))
+			.andExpect(status().isOk())
+			.andReturn()
+			.getResponse()
+			.getContentAsString();
+		this.mvc
+			.perform(post(this.web.url("/logout/connect/back-channel/" + registrationId).toString())
+				.param("logout_token", logoutToken))
+			.andExpect(status().isOk());
+		this.mvc.perform(get("/token/logout").session(session)).andExpect(status().isUnauthorized());
+	}
+
+	@Test
 	void logoutWhenRemoteLogoutFailsThenReportsPartialLogout() throws Exception {
 		this.spring.register(WebServerConfig.class, OidcProviderConfig.class, WithBrokenLogoutConfig.class).autowire();
 		LogoutHandler logoutHandler = this.spring.getContext().getBean(LogoutHandler.class);
@@ -348,6 +365,30 @@ public class OidcLogoutConfigurerTests {
 					.oidcLogout((oidc) -> oidc
 						.backChannel((backchannel) -> backchannel.logoutUri("http://localhost/wrong"))
 					);
+			// @formatter:on
+
+			return http.build();
+		}
+
+	}
+
+	@Configuration
+	@EnableWebSecurity
+	@Import(RegistrationConfig.class)
+	static class SelfLogoutUriConfig {
+
+		@Bean
+		@Order(1)
+		SecurityFilterChain filters(HttpSecurity http) throws Exception {
+			// @formatter:off
+			http
+				.authorizeHttpRequests((authorize) -> authorize.anyRequest().authenticated())
+				.oauth2Login(Customizer.withDefaults())
+				.oidcLogout((oidc) -> oidc
+					.backChannel((backchannel) -> backchannel
+						.sessionLogout(Customizer.withDefaults())
+					)
+				);
 			// @formatter:on
 
 			return http.build();
