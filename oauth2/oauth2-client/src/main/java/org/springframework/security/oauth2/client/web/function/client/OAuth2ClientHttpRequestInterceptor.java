@@ -21,7 +21,6 @@ import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
-import java.util.function.Supplier;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -35,7 +34,6 @@ import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -129,9 +127,6 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 
 	private SecurityContextHolderStrategy securityContextHolderStrategy = SecurityContextHolder
 		.getContextHolderStrategy();
-
-	private Supplier<Authentication> authentication = () -> this.securityContextHolderStrategy.getContext()
-		.getAuthentication();
 
 	/**
 	 * Constructs a {@code OAuth2ClientHttpRequestInterceptor} using the provided
@@ -242,101 +237,6 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		this.securityContextHolderStrategy = securityContextHolderStrategy;
 	}
 
-	/**
-	 * Sets the principal name of the resource owner used to look up and save the
-	 * {@link OAuth2AuthorizedClient}.
-	 *
-	 * <p>
-	 * When this setter is used, the principal will not be resolved from the configured
-	 * {@link SecurityContextHolderStrategy} and will instead use the provided name.
-	 *
-	 * <p>
-	 * One example where this is useful is with the {@code client_credentials} grant type
-	 * to scope an {@link OAuth2AuthorizedClient} to the application for global use in a
-	 * background service.
-	 * @param principalName the principal name to use
-	 */
-	public void setPrincipalName(String principalName) {
-		Assert.hasText(principalName, "principalName cannot be empty");
-		Authentication principal = createAuthentication(principalName);
-		this.authentication = () -> principal;
-	}
-
-	/**
-	 * Sets the {@link Authentication principal} of the resource owner used to look up and
-	 * save the {@link OAuth2AuthorizedClient}.
-	 *
-	 * <p>
-	 * When this setter is used, the principal will not be resolved from the configured
-	 * {@link SecurityContextHolderStrategy} and will instead use the provided instance.
-	 *
-	 * <p>
-	 * One example where this is useful is with the {@code client_credentials} grant type
-	 * to scope an {@link OAuth2AuthorizedClient} to the application for global use in a
-	 * background service.
-	 * @param principal the principal to use
-	 */
-	public void setPrincipal(Authentication principal) {
-		Assert.notNull(principal, "principal cannot be null");
-		this.authentication = () -> principal;
-	}
-
-	/**
-	 * Returns a {@link Consumer callback} that can be provided to
-	 * {@link org.springframework.web.client.RestClient.RequestHeadersSpec#httpRequest(Consumer)}
-	 * to make OAuth 2.0 requests by including the
-	 * {@link OAuth2AuthorizedClient#getAccessToken() access token} as a bearer token.
-	 *
-	 * <p>
-	 * This is useful for authorizing a client on a per-request basis, for example when
-	 * the {@code clientRegistrationId} is only known at runtime.
-	 *
-	 * <p>
-	 * Example usage:
-	 *
-	 * <pre>
-	 * RestClient restClient = RestClient.create();
-	 * ...
-	 * OAuth2ClientHttpRequestInterceptor requestInterceptor =
-	 *     new OAuth2ClientHttpRequestInterceptor(authorizedClientManager, clientRegistrationId);
-	 * String response = restClient.get()
-	 *     .uri(uri)
-	 *     .httpRequest(requestInterceptor.httpRequest())
-	 *     .retrieve()
-	 *     .onStatus(requestInterceptor.errorHandler())
-	 *     .body(String.class);
-	 * </pre>
-	 * @return a {@link Consumer} that can access the {@link ClientHttpRequest}
-	 * @see #errorHandler()
-	 */
-	public Consumer<ClientHttpRequest> httpRequest() {
-		return this::authorizeClient;
-	}
-
-	/**
-	 * Returns a {@link ResponseErrorHandler} that can be provided to
-	 * {@link org.springframework.web.client.RestClient.ResponseSpec#onStatus(ResponseErrorHandler)}
-	 * in order to forward authentication (HTTP 401 Unauthorized) and authorization (HTTP
-	 * 403 Forbidden) failures from an OAuth 2.0 Resource Server to a
-	 * {@link OAuth2AuthorizationFailureHandler}.
-	 *
-	 * <p>
-	 * This is useful for handling errors on a per-request basis, for example when the
-	 * {@code clientRegistrationId} is only known at runtime. See {@link #httpRequest()}
-	 * for more information.
-	 * @return the error handler
-	 * @see #httpRequest()
-	 */
-	public ResponseErrorHandler errorHandler() {
-		return new DefaultResponseErrorHandler() {
-			@Override
-			public void handleError(URI url, HttpMethod method, ClientHttpResponse response) throws IOException {
-				handleAuthorizationFailure(response.getHeaders(), response.getStatusCode());
-				super.handleError(url, method, response);
-			}
-		};
-	}
-
 	@Override
 	public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
 			throws IOException {
@@ -357,7 +257,7 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	}
 
 	private void authorizeClient(HttpRequest request) {
-		Authentication principal = this.authentication.get();
+		Authentication principal = this.securityContextHolderStrategy.getContext().getAuthentication();
 		if (principal == null) {
 			principal = ANONYMOUS_AUTHENTICATION;
 		}
@@ -424,7 +324,7 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	}
 
 	private void handleAuthorizationFailure(OAuth2AuthorizationException authorizationException) {
-		Authentication principal = this.authentication.get();
+		Authentication principal = this.securityContextHolderStrategy.getContext().getAuthentication();
 		if (principal == null) {
 			principal = ANONYMOUS_AUTHENTICATION;
 		}
@@ -440,23 +340,6 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		}
 
 		this.authorizationFailureHandler.onAuthorizationFailure(authorizationException, principal, attributes);
-	}
-
-	private static Authentication createAuthentication(final String principalName) {
-		Assert.hasText(principalName, "principalName cannot be empty");
-		return new AbstractAuthenticationToken(null) {
-
-			@Override
-			public Object getPrincipal() {
-				return principalName;
-			}
-
-			@Override
-			public Object getCredentials() {
-				return "";
-			}
-
-		};
 	}
 
 }
