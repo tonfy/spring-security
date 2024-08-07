@@ -17,7 +17,6 @@
 package org.springframework.security.oauth2.client.web.function.client;
 
 import java.io.IOException;
-import java.net.URI;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -26,7 +25,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
 import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -47,6 +45,7 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.RemoveAuthorizedClientOAuth2AuthorizationFailureHandler;
+import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
 import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
@@ -55,8 +54,7 @@ import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.DefaultResponseErrorHandler;
-import org.springframework.web.client.ResponseErrorHandler;
+import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -116,9 +114,12 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	private static final Authentication ANONYMOUS_AUTHENTICATION = new AnonymousAuthenticationToken("anonymous",
 			"anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
+	private static final String CLIENT_REGISTRATION_ID_ATTR_NAME = OAuth2ClientHttpRequestInterceptor.class.getName()
+		.concat(".clientRegistrationId");
+
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
-	private final String clientRegistrationId;
+	private String defaultClientRegistrationId;
 
 	// @formatter:off
 	private OAuth2AuthorizationFailureHandler authorizationFailureHandler =
@@ -133,15 +134,27 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	 * parameters.
 	 * @param authorizedClientManager the {@link OAuth2AuthorizedClientManager} which
 	 * manages the authorized client(s)
-	 * @param clientRegistrationId the {@link ClientRegistration#getRegistrationId()} to
-	 * be used to look up the {@link OAuth2AuthorizedClient}
 	 */
-	public OAuth2ClientHttpRequestInterceptor(OAuth2AuthorizedClientManager authorizedClientManager,
-			String clientRegistrationId) {
+	public OAuth2ClientHttpRequestInterceptor(OAuth2AuthorizedClientManager authorizedClientManager) {
 		Assert.notNull(authorizedClientManager, "authorizedClientManager cannot be null");
-		Assert.hasText(clientRegistrationId, "clientRegistrationId cannot be empty");
 		this.authorizedClientManager = authorizedClientManager;
-		this.clientRegistrationId = clientRegistrationId;
+	}
+
+	/**
+	 * Sets the default {@code clientRegistrationId} to be used for resolving an
+	 * {@link OAuth2AuthorizedClient}.
+	 *
+	 * <p>
+	 * By default, the {@code clientRegistrationId} is obtained from the current
+	 * {@link Authentication principal}. Using this setter overrides the default, but can
+	 * be overridden by providing an
+	 * {@link RestClient.RequestHeadersSpec#attributes(Consumer) attribute} via
+	 * {@link #clientRegistrationId(String)}.
+	 * @param clientRegistrationId the default {@code clientRegistrationId}
+	 */
+	public void setDefaultClientRegistrationId(String clientRegistrationId) {
+		Assert.hasText(clientRegistrationId, "clientRegistrationId cannot be empty");
+		this.defaultClientRegistrationId = clientRegistrationId;
 	}
 
 	/**
@@ -237,33 +250,52 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		this.securityContextHolderStrategy = securityContextHolderStrategy;
 	}
 
+	/**
+	 * Modifies the {@link ClientHttpRequest#getAttributes() attributes} to include the
+	 * {@link ClientRegistration#getRegistrationId() clientRegistrationId} to be used to
+	 * look up the {@link OAuth2AuthorizedClient}.
+	 * @param clientRegistrationId the {@link ClientRegistration#getRegistrationId()
+	 * clientRegistrationId} to be used to look up the {@link OAuth2AuthorizedClient}
+	 * @return the {@link Consumer} to populate the attributes
+	 */
+	public static Consumer<Map<String, Object>> clientRegistrationId(String clientRegistrationId) {
+		Assert.hasText(clientRegistrationId, "clientRegistrationId cannot be empty");
+		return (attributes) -> attributes.put(CLIENT_REGISTRATION_ID_ATTR_NAME, clientRegistrationId);
+	}
+
 	@Override
 	public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
 			throws IOException {
-		authorizeClient(request);
-		try {
-			ClientHttpResponse response = execution.execute(request, body);
-			handleAuthorizationFailure(response.getHeaders(), response.getStatusCode());
-			return response;
-		}
-		catch (RestClientResponseException ex) {
-			handleAuthorizationFailure(ex.getResponseHeaders(), ex.getStatusCode());
-			throw ex;
-		}
-		catch (OAuth2AuthorizationException ex) {
-			handleAuthorizationFailure(ex);
-			throw ex;
-		}
-	}
-
-	private void authorizeClient(HttpRequest request) {
 		Authentication principal = this.securityContextHolderStrategy.getContext().getAuthentication();
 		if (principal == null) {
 			principal = ANONYMOUS_AUTHENTICATION;
 		}
+
+		authorizeClient(request, principal);
+		try {
+			ClientHttpResponse response = execution.execute(request, body);
+			handleAuthorizationFailure(request, principal, response.getHeaders(), response.getStatusCode());
+			return response;
+		}
+		catch (RestClientResponseException ex) {
+			handleAuthorizationFailure(request, principal, ex.getResponseHeaders(), ex.getStatusCode());
+			throw ex;
+		}
+		catch (OAuth2AuthorizationException ex) {
+			handleAuthorizationFailure(ex, principal);
+			throw ex;
+		}
+	}
+
+	private void authorizeClient(HttpRequest request, Authentication principal) {
+		String clientRegistrationId = clientRegistrationId(request, principal);
+		if (clientRegistrationId == null) {
+			return;
+		}
+
 		// @formatter:off
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
-				.withClientRegistrationId(this.clientRegistrationId)
+				.withClientRegistrationId(clientRegistrationId)
 				.principal(principal)
 				.build();
 		// @formatter:on
@@ -273,15 +305,21 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		}
 	}
 
-	private void handleAuthorizationFailure(HttpHeaders headers, HttpStatusCode httpStatus) {
+	private void handleAuthorizationFailure(HttpRequest request, Authentication principal, HttpHeaders headers,
+			HttpStatusCode httpStatus) {
 		OAuth2Error error = resolveOAuth2ErrorIfPossible(headers, httpStatus);
 		if (error == null) {
 			return;
 		}
 
+		String clientRegistrationId = clientRegistrationId(request, principal);
+		if (clientRegistrationId == null) {
+			return;
+		}
+
 		ClientAuthorizationException authorizationException = new ClientAuthorizationException(error,
-				this.clientRegistrationId);
-		handleAuthorizationFailure(authorizationException);
+				clientRegistrationId);
+		handleAuthorizationFailure(authorizationException, principal);
 	}
 
 	private static OAuth2Error resolveOAuth2ErrorIfPossible(HttpHeaders headers, HttpStatusCode httpStatus) {
@@ -323,12 +361,20 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		return parameters;
 	}
 
-	private void handleAuthorizationFailure(OAuth2AuthorizationException authorizationException) {
-		Authentication principal = this.securityContextHolderStrategy.getContext().getAuthentication();
-		if (principal == null) {
-			principal = ANONYMOUS_AUTHENTICATION;
+	private String clientRegistrationId(HttpRequest request, Authentication principal) {
+		String clientRegistrationId = (String) request.getAttributes().get(CLIENT_REGISTRATION_ID_ATTR_NAME);
+		if (clientRegistrationId == null) {
+			clientRegistrationId = this.defaultClientRegistrationId;
+		}
+		if (clientRegistrationId == null && principal instanceof OAuth2AuthenticationToken authentication) {
+			clientRegistrationId = authentication.getAuthorizedClientRegistrationId();
 		}
 
+		return clientRegistrationId;
+	}
+
+	private void handleAuthorizationFailure(OAuth2AuthorizationException authorizationException,
+			Authentication principal) {
 		ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
 			.getRequestAttributes();
 		Map<String, Object> attributes = new HashMap<>();
