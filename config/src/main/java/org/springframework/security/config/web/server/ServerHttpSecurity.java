@@ -58,7 +58,6 @@ import org.springframework.security.authorization.AuthorizationDecision;
 import org.springframework.security.authorization.ObservationReactiveAuthorizationManager;
 import org.springframework.security.authorization.ReactiveAuthorizationManager;
 import org.springframework.security.config.Customizer;
-import org.springframework.security.config.annotation.web.configurers.oauth2.client.OidcLogoutConfigurer;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -5536,7 +5535,7 @@ public class ServerHttpSecurity {
 			 * that the scheme, server name, or port in the {@code Host} header are
 			 * different from how you would address the same server internally.
 			 * @param logoutUri the URI to request logout on the back-channel
-			 * @return the {@link OidcLogoutConfigurer.BackChannelLogoutConfigurer} for
+			 * @return the {@link BackChannelLogoutConfigurer} for
 			 * further customizations
 			 * @since 6.2.4
 			 * @deprecated Please use {@link #sessionLogout} instead
@@ -5610,7 +5609,7 @@ public class ServerHttpSecurity {
 			 * </pre>
 			 * @param sessionLogout a {@link Customizer} for configuring how to log out of
 			 * each individual session
-			 * @return {@link OidcLogoutConfigurer.BackChannelLogoutConfigurer} for
+			 * @return {@link BackChannelLogoutConfigurer} for
 			 * further customizations
 			 * @since 6.4
 			 */
@@ -5697,7 +5696,7 @@ public class ServerHttpSecurity {
 				 * {@code {baseScheme}://localhost{basePort}/logout}.
 				 * @param uri the URI to invoke to log out specific sessions
 				 * @return the
-				 * {@link OidcLogoutConfigurer.BackChannelLogoutConfigurer.SessionLogoutConfigurer}
+				 * {@link SessionLogoutConfigurer}
 				 * for further customizations
 				 */
 				public SessionLogoutConfigurer uri(String uri) {
@@ -5716,7 +5715,7 @@ public class ServerHttpSecurity {
 				 * When using Spring Session, you may need to set this to {@code SESSION}
 				 * @param cookieName the cookie name to use
 				 * @return the
-				 * {@link OidcLogoutConfigurer.BackChannelLogoutConfigurer.SessionLogoutConfigurer}
+				 * {@link SessionLogoutConfigurer}
 				 * for further customizations
 				 */
 				public SessionLogoutConfigurer cookieName(String cookieName) {
