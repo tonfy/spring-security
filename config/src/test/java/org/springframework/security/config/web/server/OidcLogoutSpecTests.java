@@ -269,6 +269,29 @@ public class OidcLogoutSpecTests {
 	}
 
 	@Test
+	void logoutWhenSelfRemoteLogoutUriThenUses() {
+		this.spring.register(WebServerConfig.class, OidcProviderConfig.class, SelfLogoutUriConfig.class).autowire();
+		String registrationId = this.clientRegistration.getRegistrationId();
+		String sessionId = login();
+		String logoutToken = this.test.get()
+			.uri("/token/logout")
+			.cookie("SESSION", sessionId)
+			.exchange()
+			.expectStatus()
+			.isOk()
+			.returnResult(String.class)
+			.getResponseBody()
+			.blockFirst();
+		this.test.post()
+			.uri(this.web.url("/logout/connect/back-channel/" + registrationId).toString())
+			.body(BodyInserters.fromFormData("logout_token", logoutToken))
+			.exchange()
+			.expectStatus()
+			.isOk();
+		this.test.get().uri("/token/logout").cookie("SESSION", sessionId).exchange().expectStatus().isUnauthorized();
+	}
+
+	@Test
 	void logoutWhenRemoteLogoutFailsThenReportsPartialLogout() {
 		this.spring.register(WebServerConfig.class, OidcProviderConfig.class, WithBrokenLogoutConfig.class).autowire();
 		ServerLogoutHandler logoutHandler = this.spring.getContext().getBean(ServerLogoutHandler.class);
@@ -437,6 +460,30 @@ public class OidcLogoutSpecTests {
 					.oidcLogout((oidc) -> oidc
 						.backChannel((backchannel) -> backchannel.logoutUri("http://localhost/wrong"))
 					);
+			// @formatter:on
+
+			return http.build();
+		}
+
+	}
+
+	@Configuration
+	@EnableWebFluxSecurity
+	@Import(RegistrationConfig.class)
+	static class SelfLogoutUriConfig {
+
+		@Bean
+		@Order(1)
+		SecurityWebFilterChain filters(ServerHttpSecurity http) throws Exception {
+			// @formatter:off
+			http
+				.authorizeExchange((authorize) -> authorize.anyExchange().authenticated())
+				.oauth2Login(Customizer.withDefaults())
+				.oidcLogout((oidc) -> oidc
+					.backChannel((backchannel) -> backchannel
+						.sessionLogout(Customizer.withDefaults())
+					)
+				);
 			// @formatter:on
 
 			return http.build();
