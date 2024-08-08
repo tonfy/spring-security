@@ -5672,6 +5672,8 @@ public class ServerHttpSecurity {
 
 				private String logoutUri = "{baseScheme}://localhost{basePort}/logout/connect/back-channel/{registrationId}";
 
+				private String cookieName = "SESSION";
+
 				private SessionLogoutConfigurer() {
 
 				}
@@ -5703,10 +5705,30 @@ public class ServerHttpSecurity {
 					return this;
 				}
 
+				/**
+				 * Use this cookie name to propagate the internal session identifier in
+				 * the internal logout invocation.
+				 *
+				 * <p>
+				 * This defaults to {@code JSESSIONID}.
+				 *
+				 * <p>
+				 * When using Spring Session, you may need to set this to {@code SESSION}
+				 * @param cookieName the cookie name to use
+				 * @return the
+				 * {@link OidcLogoutConfigurer.BackChannelLogoutConfigurer.SessionLogoutConfigurer}
+				 * for further customizations
+				 */
+				public SessionLogoutConfigurer cookieName(String cookieName) {
+					this.cookieName = cookieName;
+					return this;
+				}
+
 				private ServerLogoutHandler configure() {
 					OidcBackChannelServerLogoutHandler logoutHandler = new OidcBackChannelServerLogoutHandler();
 					logoutHandler.setSessionRegistry(OidcLogoutSpec.this.getSessionRegistry());
 					logoutHandler.setLogoutUri(this.logoutUri);
+					logoutHandler.setSessionCookieName(this.cookieName);
 					return logoutHandler;
 				}
 
