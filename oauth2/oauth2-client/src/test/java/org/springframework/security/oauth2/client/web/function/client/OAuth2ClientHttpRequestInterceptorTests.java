@@ -81,6 +81,7 @@ import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
+import static org.springframework.security.oauth2.client.web.function.client.OAuth2ClientHttpRequestInterceptor.authorizationFailureHandler;
 import static org.springframework.security.oauth2.client.web.function.client.RequestAttributeClientRegistrationIdResolver.clientRegistrationId;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.header;
 import static org.springframework.test.web.client.match.MockRestRequestMatchers.headerDoesNotExist;
@@ -183,15 +184,16 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	}
 
 	@Test
-	public void setAuthorizedClientRepositoryWhenNullThenThrowsIllegalArgumentException() {
+	public void authorizationFailureHandlerWhenAuthorizedClientRepositoryIsNullThenThrowsIllegalArgumentException() {
 		assertThatIllegalArgumentException()
-			.isThrownBy(() -> this.requestInterceptor.setAuthorizedClientRepository(null))
+			.isThrownBy(() -> authorizationFailureHandler((OAuth2AuthorizedClientRepository) null))
 			.withMessage("authorizedClientRepository cannot be null");
 	}
 
 	@Test
-	public void setAuthorizedClientServiceWhenNullThenThrowsIllegalArgumentException() {
-		assertThatIllegalArgumentException().isThrownBy(() -> this.requestInterceptor.setAuthorizedClientService(null))
+	public void authorizationFailureHandlerWhenAuthorizedClientServiceIsNullThenThrowsIllegalArgumentException() {
+		assertThatIllegalArgumentException()
+			.isThrownBy(() -> authorizationFailureHandler((OAuth2AuthorizedClientService) null))
 			.withMessage("authorizedClientService cannot be null");
 	}
 
@@ -548,8 +550,9 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	}
 
 	@Test
-	public void interceptWhenUnauthorizedAndAuthorizedClientRepositorySetThenAuthorizedClientRemoved() {
-		this.requestInterceptor.setAuthorizedClientRepository(this.authorizedClientRepository);
+	public void interceptWhenUnauthorizedAndAuthorizationFailureHandlerSetWithAuthorizedClientRepositoryThenAuthorizedClientRemoved() {
+		this.requestInterceptor
+			.setAuthorizationFailureHandler(authorizationFailureHandler(this.authorizedClientRepository));
 		given(this.authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
 			.willReturn(this.authorizedClient);
 
@@ -574,8 +577,9 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	}
 
 	@Test
-	public void interceptWhenUnauthorizedAndAuthorizedClientServiceSetThenAuthorizedClientRemoved() {
-		this.requestInterceptor.setAuthorizedClientService(this.authorizedClientService);
+	public void interceptWhenUnauthorizedAndAuthorizationFailureHandlerSetWithAuthorizedClientServiceThenAuthorizedClientRemoved() {
+		this.requestInterceptor
+			.setAuthorizationFailureHandler(authorizationFailureHandler(this.authorizedClientService));
 		given(this.authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
 			.willReturn(this.authorizedClient);
 

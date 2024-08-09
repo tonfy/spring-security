@@ -65,7 +65,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  *
  * <pre>
  * OAuth2ClientHttpRequestInterceptor requestInterceptor =
- *     new OAuth2ClientHttpRequestInterceptor(authorizedClientManager, clientRegistrationId);
+ *     new OAuth2ClientHttpRequestInterceptor(authorizedClientManager);
  * RestClient restClient = RestClient.builder()
  *     .requestInterceptor(requestInterceptor)
  *     .build();
@@ -79,17 +79,17 @@ import org.springframework.web.context.request.ServletRequestAttributes;
  *
  * <p>
  * This interceptor has the ability to forward authentication (HTTP 401 Unauthorized) and
- * authorization (HTTP 403 Forbidden) failures from an OAuth 2.0 Resource Server to a
+ * authorization (HTTP 403 Forbidden) failures from an OAuth 2.0 Resource Server to an
  * {@link OAuth2AuthorizationFailureHandler}. A
  * {@link RemoveAuthorizedClientOAuth2AuthorizationFailureHandler} can be used to remove
  * the cached {@link OAuth2AuthorizedClient}, so that future requests will result in a new
  * token being retrieved from an Authorization Server, and sent to the Resource Server.
  *
  * <p>
- * If either the {@link #setAuthorizedClientRepository(OAuth2AuthorizedClientRepository)}
- * setter or {@link #setAuthorizedClientService(OAuth2AuthorizedClientService)} setter is
- * used, a {@link RemoveAuthorizedClientOAuth2AuthorizationFailureHandler} will be
- * configured automatically.
+ * Use either {@link #authorizationFailureHandler(OAuth2AuthorizedClientRepository)} or
+ * {@link #authorizationFailureHandler(OAuth2AuthorizedClientService)} to create a
+ * {@link RemoveAuthorizedClientOAuth2AuthorizationFailureHandler} which can be provided
+ * to {@link #setAuthorizationFailureHandler(OAuth2AuthorizationFailureHandler)}.
  *
  * @author Steve Riesenberg
  * @since 6.4
@@ -158,8 +158,8 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	 * same token is no longer used in future requests to the Resource Server.
 	 * @param authorizationFailureHandler the {@link OAuth2AuthorizationFailureHandler}
 	 * that handles authentication and authorization failures
-	 * @see #setAuthorizedClientRepository(OAuth2AuthorizedClientRepository)
-	 * @see #setAuthorizedClientService(OAuth2AuthorizedClientService)
+	 * @see #authorizationFailureHandler(OAuth2AuthorizedClientRepository)
+	 * @see #authorizationFailureHandler(OAuth2AuthorizedClientService)
 	 */
 	public void setAuthorizationFailureHandler(OAuth2AuthorizationFailureHandler authorizationFailureHandler) {
 		Assert.notNull(authorizationFailureHandler, "authorizationFailureHandler cannot be null");
@@ -167,12 +167,12 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	}
 
 	/**
-	 * Sets the {@link OAuth2AuthorizedClientRepository} which is used to set up the
-	 * {@link OAuth2AuthorizationFailureHandler} that handles authentication and
-	 * authorization failures when communicating to the OAuth 2.0 Resource Server.
+	 * Provides an {@link OAuth2AuthorizationFailureHandler} that handles authentication
+	 * and authorization failures when communicating to the OAuth 2.0 Resource Server
+	 * using a {@link OAuth2AuthorizedClientRepository}.
 	 *
 	 * <p>
-	 * When this setter is used, authentication (HTTP 401) and authorization (HTTP 403)
+	 * When this method is used, authentication (HTTP 401) and authorization (HTTP 403)
 	 * failures returned from an OAuth 2.0 Resource Server will be forwarded to a
 	 * {@link RemoveAuthorizedClientOAuth2AuthorizationFailureHandler}, which will
 	 * potentially remove the {@link OAuth2AuthorizedClient} from the given
@@ -185,24 +185,24 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	 * to the Resource Server.
 	 * @param authorizedClientRepository the repository of authorized clients
 	 */
-	public void setAuthorizedClientRepository(OAuth2AuthorizedClientRepository authorizedClientRepository) {
+	public static OAuth2AuthorizationFailureHandler authorizationFailureHandler(
+			OAuth2AuthorizedClientRepository authorizedClientRepository) {
 		Assert.notNull(authorizedClientRepository, "authorizedClientRepository cannot be null");
-		this.authorizationFailureHandler = new RemoveAuthorizedClientOAuth2AuthorizationFailureHandler(
-				(clientRegistrationId, principal, attributes) -> removeAuthorizedClient(authorizedClientRepository,
-						clientRegistrationId, principal, attributes));
-	}
-
-	private static void removeAuthorizedClient(OAuth2AuthorizedClientRepository authorizedClientRepository,
-			String clientRegistrationId, Authentication principal, Map<String, Object> attributes) {
-		HttpServletRequest request = (HttpServletRequest) attributes.get(HttpServletRequest.class.getName());
-		HttpServletResponse response = (HttpServletResponse) attributes.get(HttpServletResponse.class.getName());
-		authorizedClientRepository.removeAuthorizedClient(clientRegistrationId, principal, request, response);
+		return new RemoveAuthorizedClientOAuth2AuthorizationFailureHandler(
+				(clientRegistrationId, principal, attributes) -> {
+					HttpServletRequest request = (HttpServletRequest) attributes
+						.get(HttpServletRequest.class.getName());
+					HttpServletResponse response = (HttpServletResponse) attributes
+						.get(HttpServletResponse.class.getName());
+					authorizedClientRepository.removeAuthorizedClient(clientRegistrationId, principal, request,
+							response);
+				});
 	}
 
 	/**
-	 * Sets the {@link OAuth2AuthorizedClientService} which is used to set up the
-	 * {@link OAuth2AuthorizationFailureHandler} that handles authentication and
-	 * authorization failures when communicating to the OAuth 2.0 Resource Server.
+	 * Provides an {@link OAuth2AuthorizationFailureHandler} that handles authentication
+	 * and authorization failures when communicating to the OAuth 2.0 Resource Server
+	 * using a {@link OAuth2AuthorizedClientService}.
 	 *
 	 * <p>
 	 * When this setter is used, authentication (HTTP 401) and authorization (HTTP 403)
@@ -218,16 +218,12 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	 * to the Resource Server.
 	 * @param authorizedClientService the service used to manage authorized clients
 	 */
-	public void setAuthorizedClientService(OAuth2AuthorizedClientService authorizedClientService) {
+	public static OAuth2AuthorizationFailureHandler authorizationFailureHandler(
+			OAuth2AuthorizedClientService authorizedClientService) {
 		Assert.notNull(authorizedClientService, "authorizedClientService cannot be null");
-		this.authorizationFailureHandler = new RemoveAuthorizedClientOAuth2AuthorizationFailureHandler(
-				(clientRegistrationId, principal, attributes) -> removeAuthorizedClient(authorizedClientService,
-						clientRegistrationId, principal));
-	}
-
-	private static void removeAuthorizedClient(OAuth2AuthorizedClientService authorizedClientService,
-			String clientRegistrationId, Authentication principal) {
-		authorizedClientService.removeAuthorizedClient(clientRegistrationId, principal.getName());
+		return new RemoveAuthorizedClientOAuth2AuthorizationFailureHandler(
+				(clientRegistrationId, principal, attributes) -> authorizedClientService
+					.removeAuthorizedClient(clientRegistrationId, principal.getName()));
 	}
 
 	/**
