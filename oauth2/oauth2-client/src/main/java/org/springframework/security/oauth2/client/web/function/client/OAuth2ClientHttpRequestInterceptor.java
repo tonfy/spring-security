@@ -19,7 +19,6 @@ package org.springframework.security.oauth2.client.web.function.client;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import java.util.function.Consumer;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -31,7 +30,7 @@ import org.springframework.http.HttpStatusCode;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
-import org.springframework.security.access.AccessDeniedException;
+import org.springframework.lang.Nullable;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -45,8 +44,6 @@ import org.springframework.security.oauth2.client.OAuth2AuthorizedClientManager;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientProvider;
 import org.springframework.security.oauth2.client.OAuth2AuthorizedClientService;
 import org.springframework.security.oauth2.client.RemoveAuthorizedClientOAuth2AuthorizationFailureHandler;
-import org.springframework.security.oauth2.client.authentication.OAuth2AuthenticationToken;
-import org.springframework.security.oauth2.client.registration.ClientRegistration;
 import org.springframework.security.oauth2.client.web.OAuth2AuthorizedClientRepository;
 import org.springframework.security.oauth2.core.OAuth2AuthorizationException;
 import org.springframework.security.oauth2.core.OAuth2Error;
@@ -54,7 +51,6 @@ import org.springframework.security.oauth2.core.OAuth2ErrorCodes;
 import org.springframework.security.oauth2.core.endpoint.OAuth2ParameterNames;
 import org.springframework.util.Assert;
 import org.springframework.util.StringUtils;
-import org.springframework.web.client.RestClient;
 import org.springframework.web.client.RestClientResponseException;
 import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
@@ -114,14 +110,9 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	private static final Authentication ANONYMOUS_AUTHENTICATION = new AnonymousAuthenticationToken("anonymous",
 			"anonymousUser", AuthorityUtils.createAuthorityList("ROLE_ANONYMOUS"));
 
-	private static final String CLIENT_REGISTRATION_ID_ATTR_NAME = OAuth2ClientHttpRequestInterceptor.class.getName()
-		.concat(".clientRegistrationId");
-
 	private final OAuth2AuthorizedClientManager authorizedClientManager;
 
-	private String defaultClientRegistrationId;
-
-	private boolean useAuthenticatedClientRegistrationId;
+	private final ClientRegistrationIdResolver clientRegistrationIdResolver;
 
 	// @formatter:off
 	private OAuth2AuthorizationFailureHandler authorizationFailureHandler =
@@ -138,41 +129,23 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	 * manages the authorized client(s)
 	 */
 	public OAuth2ClientHttpRequestInterceptor(OAuth2AuthorizedClientManager authorizedClientManager) {
+		this(authorizedClientManager, new RequestAttributeClientRegistrationIdResolver());
+	}
+
+	/**
+	 * Constructs a {@code OAuth2ClientHttpRequestInterceptor} using the provided
+	 * parameters.
+	 * @param authorizedClientManager the {@link OAuth2AuthorizedClientManager} which
+	 * manages the authorized client(s)
+	 * @param clientRegistrationIdResolver the strategy for resolving a
+	 * {@code clientRegistrationId} from the intercepted request
+	 */
+	public OAuth2ClientHttpRequestInterceptor(OAuth2AuthorizedClientManager authorizedClientManager,
+			ClientRegistrationIdResolver clientRegistrationIdResolver) {
 		Assert.notNull(authorizedClientManager, "authorizedClientManager cannot be null");
+		Assert.notNull(clientRegistrationIdResolver, "clientRegistrationIdResolver cannot be null");
 		this.authorizedClientManager = authorizedClientManager;
-	}
-
-	/**
-	 * Sets the default {@code clientRegistrationId} to be used for resolving an
-	 * {@link OAuth2AuthorizedClient}.
-	 *
-	 * <p>
-	 * By default, the {@code clientRegistrationId} is obtained from the current
-	 * {@link Authentication principal}. Using this setter overrides the default, but can
-	 * be overridden by providing an
-	 * {@link RestClient.RequestHeadersSpec#attributes(Consumer) attribute} via
-	 * {@link #clientRegistrationId(String)}.
-	 * @param clientRegistrationId the default {@code clientRegistrationId}
-	 */
-	public void setDefaultClientRegistrationId(String clientRegistrationId) {
-		Assert.hasText(clientRegistrationId, "clientRegistrationId cannot be empty");
-		this.defaultClientRegistrationId = clientRegistrationId;
-	}
-
-	/**
-	 * Enables or disables discovering the {@code clientRegistrationId} from the current
-	 * {@link Authentication principal}. It is recommended to be cautious with this
-	 * feature since all HTTP requests will receive the access token if it can be resolved
-	 * from the current Authentication.
-	 *
-	 * <p>
-	 * This feature requires the user to be logged in via OAuth2 or OpenID Connect Login.
-	 * @param useAuthenticatedClientRegistrationId true if the
-	 * {@code clientRegistrationId} should be discovered from the current
-	 * {@link Authentication principal}. The default is false.
-	 */
-	public void setUseAuthenticatedClientRegistrationId(boolean useAuthenticatedClientRegistrationId) {
-		this.useAuthenticatedClientRegistrationId = useAuthenticatedClientRegistrationId;
+		this.clientRegistrationIdResolver = clientRegistrationIdResolver;
 	}
 
 	/**
@@ -268,19 +241,6 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		this.securityContextHolderStrategy = securityContextHolderStrategy;
 	}
 
-	/**
-	 * Modifies the {@link RestClient.RequestHeadersSpec#attributes(Consumer) attributes}
-	 * to include the {@link ClientRegistration#getRegistrationId() clientRegistrationId}
-	 * to be used to look up the {@link OAuth2AuthorizedClient}.
-	 * @param clientRegistrationId the {@link ClientRegistration#getRegistrationId()
-	 * clientRegistrationId} to be used to look up the {@link OAuth2AuthorizedClient}
-	 * @return the {@link Consumer} to populate the attributes
-	 */
-	public static Consumer<Map<String, Object>> clientRegistrationId(String clientRegistrationId) {
-		Assert.hasText(clientRegistrationId, "clientRegistrationId cannot be empty");
-		return (attributes) -> attributes.put(CLIENT_REGISTRATION_ID_ATTR_NAME, clientRegistrationId);
-	}
-
 	@Override
 	public ClientHttpResponse intercept(HttpRequest request, byte[] body, ClientHttpRequestExecution execution)
 			throws IOException {
@@ -306,7 +266,11 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	}
 
 	private void authorizeClient(HttpRequest request, Authentication principal) {
-		String clientRegistrationId = clientRegistrationId(request, principal);
+		String clientRegistrationId = this.clientRegistrationIdResolver.resolve(request);
+		if (clientRegistrationId == null) {
+			return;
+		}
+
 		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest.withClientRegistrationId(clientRegistrationId)
 			.principal(principal)
 			.build();
@@ -323,7 +287,11 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 			return;
 		}
 
-		String clientRegistrationId = clientRegistrationId(request, principal);
+		String clientRegistrationId = this.clientRegistrationIdResolver.resolve(request);
+		if (clientRegistrationId == null) {
+			return;
+		}
+
 		ClientAuthorizationException authorizationException = new ClientAuthorizationException(error,
 				clientRegistrationId);
 		handleAuthorizationFailure(authorizationException, principal);
@@ -368,35 +336,6 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		return parameters;
 	}
 
-	private String clientRegistrationId(HttpRequest request, Authentication principal) {
-		String clientRegistrationId = (String) request.getAttributes().get(CLIENT_REGISTRATION_ID_ATTR_NAME);
-		if (clientRegistrationId == null) {
-			clientRegistrationId = this.defaultClientRegistrationId;
-		}
-		if (clientRegistrationId == null && this.useAuthenticatedClientRegistrationId) {
-			if (principal instanceof OAuth2AuthenticationToken) {
-				clientRegistrationId = ((OAuth2AuthenticationToken) principal).getAuthorizedClientRegistrationId();
-			}
-			else if (principal instanceof AnonymousAuthenticationToken) {
-				throw new AccessDeniedException("Authentication is required");
-			}
-			else {
-				throw new IllegalStateException("Unable to discover clientRegistrationId."
-						+ " When useAuthenticatedClientRegistrationId=true, the current principal must be of type OAuth2AuthenticationToken"
-						+ " (OAuth2 or OpenID Connect Login is required in order to use this feature).");
-			}
-		}
-		if (clientRegistrationId == null) {
-			throw new IllegalStateException("No clientRegistrationId was provided."
-					+ " Please consider using OAuth2ClientHttpRequestInterceptor.clientRegistrationId(String) to provide one per request via RestClient.RequestHeadersSpec#attributes(Consumer),"
-					+ " OAuth2ClientHttpRequestInterceptor#setDefaultClientRegistrationId(String) to provide a default for all requests,"
-					+ " or OAuth2ClientHttpRequestInterceptor#setUseAuthenticatedClientRegistrationId(true) to configure resolving one from the current principal"
-					+ " (OAuth2 or OpenID Connect Login is required in order to use this feature).");
-		}
-
-		return clientRegistrationId;
-	}
-
 	private void handleAuthorizationFailure(OAuth2AuthorizationException authorizationException,
 			Authentication principal) {
 		ServletRequestAttributes requestAttributes = (ServletRequestAttributes) RequestContextHolder
@@ -410,6 +349,26 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		}
 
 		this.authorizationFailureHandler.onAuthorizationFailure(authorizationException, principal, attributes);
+	}
+
+	/**
+	 * A strategy for resolving a {@code clientRegistrationId} from an intercepted
+	 * request.
+	 */
+	@FunctionalInterface
+	public interface ClientRegistrationIdResolver {
+
+		/**
+		 * Resolve the {@code clientRegistrationId} from the current request, which is
+		 * used to obtain an {@link OAuth2AuthorizedClient}.
+		 * @param request the intercepted request, containing HTTP method, URI, headers,
+		 * and request attributes
+		 * @return the {@code clientRegistrationId} to be used for resolving an
+		 * {@link OAuth2AuthorizedClient}.
+		 */
+		@Nullable
+		String resolve(HttpRequest request);
+
 	}
 
 }
