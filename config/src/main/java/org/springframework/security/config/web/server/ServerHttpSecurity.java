@@ -5535,8 +5535,7 @@ public class ServerHttpSecurity {
 			 * that the scheme, server name, or port in the {@code Host} header are
 			 * different from how you would address the same server internally.
 			 * @param logoutUri the URI to request logout on the back-channel
-			 * @return the {@link BackChannelLogoutConfigurer} for
-			 * further customizations
+			 * @return the {@link BackChannelLogoutConfigurer} for further customizations
 			 * @since 6.2.4
 			 * @deprecated Please use {@link #sessionLogout} instead
 			 */
@@ -5609,8 +5608,7 @@ public class ServerHttpSecurity {
 			 * </pre>
 			 * @param sessionLogout a {@link Customizer} for configuring how to log out of
 			 * each individual session
-			 * @return {@link BackChannelLogoutConfigurer} for
-			 * further customizations
+			 * @return {@link BackChannelLogoutConfigurer} for further customizations
 			 * @since 6.4
 			 */
 			public BackChannelLogoutConfigurer sessionLogout(Customizer<SessionLogoutConfigurer> sessionLogout) {
@@ -5695,9 +5693,7 @@ public class ServerHttpSecurity {
 				 * different logout endpoint, like the Spring Security logout endpoint:
 				 * {@code {baseScheme}://localhost{basePort}/logout}.
 				 * @param uri the URI to invoke to log out specific sessions
-				 * @return the
-				 * {@link SessionLogoutConfigurer}
-				 * for further customizations
+				 * @return the {@link SessionLogoutConfigurer} for further customizations
 				 */
 				public SessionLogoutConfigurer uri(String uri) {
 					this.logoutUri = uri;
@@ -5714,9 +5710,7 @@ public class ServerHttpSecurity {
 				 * <p>
 				 * When using Spring Session, you may need to set this to {@code SESSION}
 				 * @param cookieName the cookie name to use
-				 * @return the
-				 * {@link SessionLogoutConfigurer}
-				 * for further customizations
+				 * @return the {@link SessionLogoutConfigurer} for further customizations
 				 */
 				public SessionLogoutConfigurer cookieName(String cookieName) {
 					this.cookieName = cookieName;
