@@ -28,10 +28,10 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpRequest;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
-import org.springframework.http.client.ClientHttpRequest;
 import org.springframework.http.client.ClientHttpRequestExecution;
 import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.ClientHttpResponse;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -121,6 +121,8 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 
 	private String defaultClientRegistrationId;
 
+	private boolean useAuthenticatedClientRegistrationId;
+
 	// @formatter:off
 	private OAuth2AuthorizationFailureHandler authorizationFailureHandler =
 			(clientRegistrationId, principal, attributes) -> { };
@@ -155,6 +157,22 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	public void setDefaultClientRegistrationId(String clientRegistrationId) {
 		Assert.hasText(clientRegistrationId, "clientRegistrationId cannot be empty");
 		this.defaultClientRegistrationId = clientRegistrationId;
+	}
+
+	/**
+	 * Enables or disables discovering the {@code clientRegistrationId} from the current
+	 * {@link Authentication principal}. It is recommended to be cautious with this
+	 * feature since all HTTP requests will receive the access token if it can be resolved
+	 * from the current Authentication.
+	 *
+	 * <p>
+	 * This feature requires the user to be logged in via OAuth2 or OpenID Connect Login.
+	 * @param useAuthenticatedClientRegistrationId true if the
+	 * {@code clientRegistrationId} should be discovered from the current
+	 * {@link Authentication principal}. The default is false.
+	 */
+	public void setUseAuthenticatedClientRegistrationId(boolean useAuthenticatedClientRegistrationId) {
+		this.useAuthenticatedClientRegistrationId = useAuthenticatedClientRegistrationId;
 	}
 
 	/**
@@ -251,9 +269,9 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 	}
 
 	/**
-	 * Modifies the {@link ClientHttpRequest#getAttributes() attributes} to include the
-	 * {@link ClientRegistration#getRegistrationId() clientRegistrationId} to be used to
-	 * look up the {@link OAuth2AuthorizedClient}.
+	 * Modifies the {@link RestClient.RequestHeadersSpec#attributes(Consumer) attributes}
+	 * to include the {@link ClientRegistration#getRegistrationId() clientRegistrationId}
+	 * to be used to look up the {@link OAuth2AuthorizedClient}.
 	 * @param clientRegistrationId the {@link ClientRegistration#getRegistrationId()
 	 * clientRegistrationId} to be used to look up the {@link OAuth2AuthorizedClient}
 	 * @return the {@link Consumer} to populate the attributes
@@ -289,16 +307,9 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 
 	private void authorizeClient(HttpRequest request, Authentication principal) {
 		String clientRegistrationId = clientRegistrationId(request, principal);
-		if (clientRegistrationId == null) {
-			return;
-		}
-
-		// @formatter:off
-		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest
-				.withClientRegistrationId(clientRegistrationId)
-				.principal(principal)
-				.build();
-		// @formatter:on
+		OAuth2AuthorizeRequest authorizeRequest = OAuth2AuthorizeRequest.withClientRegistrationId(clientRegistrationId)
+			.principal(principal)
+			.build();
 		OAuth2AuthorizedClient authorizedClient = this.authorizedClientManager.authorize(authorizeRequest);
 		if (authorizedClient != null) {
 			request.getHeaders().setBearerAuth(authorizedClient.getAccessToken().getTokenValue());
@@ -313,10 +324,6 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		}
 
 		String clientRegistrationId = clientRegistrationId(request, principal);
-		if (clientRegistrationId == null) {
-			return;
-		}
-
 		ClientAuthorizationException authorizationException = new ClientAuthorizationException(error,
 				clientRegistrationId);
 		handleAuthorizationFailure(authorizationException, principal);
@@ -366,8 +373,25 @@ public final class OAuth2ClientHttpRequestInterceptor implements ClientHttpReque
 		if (clientRegistrationId == null) {
 			clientRegistrationId = this.defaultClientRegistrationId;
 		}
-		if (clientRegistrationId == null && principal instanceof OAuth2AuthenticationToken authentication) {
-			clientRegistrationId = authentication.getAuthorizedClientRegistrationId();
+		if (clientRegistrationId == null && this.useAuthenticatedClientRegistrationId) {
+			if (principal instanceof OAuth2AuthenticationToken) {
+				clientRegistrationId = ((OAuth2AuthenticationToken) principal).getAuthorizedClientRegistrationId();
+			}
+			else if (principal instanceof AnonymousAuthenticationToken) {
+				throw new AccessDeniedException("Authentication is required");
+			}
+			else {
+				throw new IllegalStateException("Unable to discover clientRegistrationId."
+						+ " When useAuthenticatedClientRegistrationId=true, the current principal must be of type OAuth2AuthenticationToken"
+						+ " (OAuth2 or OpenID Connect Login is required in order to use this feature).");
+			}
+		}
+		if (clientRegistrationId == null) {
+			throw new IllegalStateException("No clientRegistrationId was provided."
+					+ " Please consider using OAuth2ClientHttpRequestInterceptor.clientRegistrationId(String) to provide one per request via RestClient.RequestHeadersSpec#attributes(Consumer),"
+					+ " OAuth2ClientHttpRequestInterceptor#setDefaultClientRegistrationId(String) to provide a default for all requests,"
+					+ " or OAuth2ClientHttpRequestInterceptor#setUseAuthenticatedClientRegistrationId(true) to configure resolving one from the current principal"
+					+ " (OAuth2 or OpenID Connect Login is required in order to use this feature).");
 		}
 
 		return clientRegistrationId;

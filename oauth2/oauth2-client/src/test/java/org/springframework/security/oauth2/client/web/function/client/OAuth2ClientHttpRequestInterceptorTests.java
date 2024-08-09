@@ -36,7 +36,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
+import org.springframework.security.authentication.TestingAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
@@ -74,6 +76,7 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatExceptionOfType;
 import static org.assertj.core.api.Assertions.assertThatIllegalArgumentException;
+import static org.assertj.core.api.Assertions.assertThatIllegalStateException;
 import static org.assertj.core.api.Assertions.entry;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
@@ -100,6 +103,16 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	private static final String ERROR_DESCRIPTION = "The request requires higher privileges than provided by the access token.";
 
 	private static final String ERROR_URI = "https://tools.ietf.org/html/rfc6750#section-3.1";
+
+	private static final String NO_CLIENT_REGISTRATION_ID_MESSAGE = "No clientRegistrationId was provided."
+			+ " Please consider using OAuth2ClientHttpRequestInterceptor.clientRegistrationId(String) to provide one per request via RestClient.RequestHeadersSpec#attributes(Consumer),"
+			+ " OAuth2ClientHttpRequestInterceptor#setDefaultClientRegistrationId(String) to provide a default for all requests,"
+			+ " or OAuth2ClientHttpRequestInterceptor#setUseAuthenticatedClientRegistrationId(true) to configure resolving one from the current principal"
+			+ " (OAuth2 or OpenID Connect Login is required in order to use this feature).";
+
+	private static final String UNABLE_TO_DISCOVER_CLIENT_REGISTRATION_ID_MESSAGE = "Unable to discover clientRegistrationId."
+			+ " When useAuthenticatedClientRegistrationId=true, the current principal must be of type OAuth2AuthenticationToken"
+			+ " (OAuth2 or OpenID Connect Login is required in order to use this feature).";
 
 	@Mock
 	private OAuth2AuthorizedClientManager authorizedClientManager;
@@ -132,7 +145,7 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 
 	private OAuth2AuthorizedClient authorizedClient;
 
-	private Authentication principal;
+	private OAuth2AuthenticationToken principal;
 
 	private OAuth2ClientHttpRequestInterceptor requestInterceptor;
 
@@ -148,7 +161,7 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		List<GrantedAuthority> authorities = AuthorityUtils.createAuthorityList("OAUTH2_USER");
 		Map<String, Object> attributes = Map.of(StandardClaimNames.SUB, "user");
 		OAuth2User user = new DefaultOAuth2User(authorities, attributes, StandardClaimNames.SUB);
-		this.principal = new OAuth2AuthenticationToken(user, authorities, this.clientRegistration.getRegistrationId());
+		this.principal = new OAuth2AuthenticationToken(user, authorities, "login-client");
 		this.requestInterceptor = new OAuth2ClientHttpRequestInterceptor(this.authorizedClientManager);
 	}
 
@@ -199,6 +212,29 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	}
 
 	@Test
+	public void interceptWhenAnonymousThenThrowsIllegalStateException() {
+		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
+
+		bindToRestClient(withRequestInterceptor());
+		assertThatIllegalStateException().isThrownBy(() -> performRequest(withDefaults()))
+			.withMessage(NO_CLIENT_REGISTRATION_ID_MESSAGE);
+		verifyNoInteractions(this.authorizedClientManager, this.authorizationFailureHandler);
+	}
+
+	@Test
+	public void interceptWhenAuthenticatedWithNonOAuth2ThenThrowsIllegalStateException() {
+		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
+
+		bindToRestClient(withRequestInterceptor());
+		SecurityContext securityContext = new SecurityContextImpl();
+		securityContext.setAuthentication(new TestingAuthenticationToken("user", null));
+		SecurityContextHolder.setContext(securityContext);
+		assertThatIllegalStateException().isThrownBy(() -> performRequest(withDefaults()))
+			.withMessage(NO_CLIENT_REGISTRATION_ID_MESSAGE);
+		verifyNoInteractions(this.authorizedClientManager, this.authorizationFailureHandler);
+	}
+
+	@Test
 	public void interceptWhenAnonymousAndAuthorizedThenAuthorizationHeaderSet() {
 		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
 		given(this.authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
@@ -238,33 +274,6 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	}
 
 	@Test
-	public void interceptWhenAnonymousAndDefaultClientRegistrationIdNotSetThenAuthorizationHeaderNotSet() {
-		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
-
-		bindToRestClient(withRequestInterceptor());
-		this.server.expect(requestTo(REQUEST_URI))
-			.andExpect(headerDoesNotExist(HttpHeaders.AUTHORIZATION))
-			.andRespond(withApplicationJson());
-		performRequest(withDefaults());
-		this.server.verify();
-		verifyNoInteractions(this.authorizedClientManager, this.authorizationFailureHandler);
-	}
-
-	@Test
-	public void interceptWhenAnonymousAndDefaultClientRegistrationIdNotSetAndUnauthorizedThenDoesNotCallAuthorizationFailureHandler() {
-		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
-
-		bindToRestClient(withRequestInterceptor());
-		this.server.expect(requestTo(REQUEST_URI))
-			.andExpect(headerDoesNotExist(HttpHeaders.AUTHORIZATION))
-			.andRespond(withWwwAuthenticateHeader(HttpStatus.UNAUTHORIZED));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
-			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
-		this.server.verify();
-		verifyNoInteractions(this.authorizedClientManager, this.authorizationFailureHandler);
-	}
-
-	@Test
 	public void interceptWhenAuthenticatedAndAuthorizedThenAuthorizationHeaderSet() {
 		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
 		given(this.authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
@@ -277,7 +286,7 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		SecurityContext securityContext = new SecurityContextImpl();
 		securityContext.setAuthentication(this.principal);
 		SecurityContextHolder.setContext(securityContext);
-		performRequest(withDefaults());
+		performRequest(withClientRegistrationId());
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(this.authorizeRequestCaptor.capture());
 		verifyNoMoreInteractions(this.authorizedClientManager);
@@ -299,7 +308,7 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		SecurityContext securityContext = new SecurityContextImpl();
 		securityContext.setAuthentication(this.principal);
 		SecurityContextHolder.setContext(securityContext);
-		performRequest(withDefaults());
+		performRequest(withClientRegistrationId());
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(this.authorizeRequestCaptor.capture());
 		verifyNoMoreInteractions(this.authorizedClientManager);
@@ -352,7 +361,7 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		performRequest(withDefaults());
+		performRequest(withClientRegistrationId());
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
 		verify(this.authorizationFailureHandler).onAuthorizationFailure(this.authorizationExceptionCaptor.capture(),
@@ -382,7 +391,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(HttpClientErrorException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -413,7 +423,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(HttpClientErrorException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -444,7 +455,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(HttpClientErrorException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -474,7 +486,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(HttpClientErrorException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.FORBIDDEN));
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -525,7 +538,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(OAuth2AuthorizationException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(OAuth2AuthorizationException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.isEqualTo(authorizationException);
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -554,7 +568,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(HttpClientErrorException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -579,7 +594,8 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 		MockHttpServletRequest request = new MockHttpServletRequest();
 		MockHttpServletResponse response = new MockHttpServletResponse();
 		RequestContextHolder.setRequestAttributes(new ServletRequestAttributes(request, response));
-		assertThatExceptionOfType(HttpClientErrorException.class).isThrownBy(() -> performRequest(withDefaults()))
+		assertThatExceptionOfType(HttpClientErrorException.class)
+			.isThrownBy(() -> performRequest(withClientRegistrationId()))
 			.satisfies((ex) -> assertThat(ex.getStatusCode()).isEqualTo(HttpStatus.UNAUTHORIZED));
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(any(OAuth2AuthorizeRequest.class));
@@ -637,20 +653,69 @@ public class OAuth2ClientHttpRequestInterceptorTests {
 	}
 
 	@Test
-	public void interceptWhenCustomSecurityContextHolderStrategySetThenUsed() {
-		this.requestInterceptor.setSecurityContextHolderStrategy(this.securityContextHolderStrategy);
+	public void interceptWhenUseAuthenticatedClientRegistrationIdTrueThenDiscoversClientRegistrationIdFromPrincipal() {
+		this.requestInterceptor.setUseAuthenticatedClientRegistrationId(true);
+		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
 		given(this.authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
 			.willReturn(this.authorizedClient);
-
-		SecurityContext securityContext = new SecurityContextImpl();
-		securityContext.setAuthentication(this.principal);
-		given(this.securityContextHolderStrategy.getContext()).willReturn(securityContext);
 
 		bindToRestClient(withRequestInterceptor());
 		this.server.expect(requestTo(REQUEST_URI))
 			.andExpect(hasAuthorizationHeader(this.authorizedClient.getAccessToken()))
 			.andRespond(withApplicationJson());
+		SecurityContext securityContext = new SecurityContextImpl();
+		securityContext.setAuthentication(this.principal);
+		SecurityContextHolder.setContext(securityContext);
 		performRequest(withDefaults());
+		this.server.verify();
+		verify(this.authorizedClientManager).authorize(this.authorizeRequestCaptor.capture());
+		verifyNoMoreInteractions(this.authorizedClientManager);
+		verifyNoInteractions(this.authorizationFailureHandler);
+		OAuth2AuthorizeRequest authorizeRequest = this.authorizeRequestCaptor.getValue();
+		assertThat(authorizeRequest.getClientRegistrationId())
+			.isEqualTo(this.principal.getAuthorizedClientRegistrationId());
+		assertThat(authorizeRequest.getPrincipal()).isEqualTo(this.principal);
+	}
+
+	@Test
+	public void interceptWhenAnonymousAndUseAuthenticatedClientRegistrationIdTrueThenThrowsAccessDeniedException() {
+		this.requestInterceptor.setUseAuthenticatedClientRegistrationId(true);
+		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
+
+		bindToRestClient(withRequestInterceptor());
+		assertThatExceptionOfType(AccessDeniedException.class).isThrownBy(() -> performRequest(withDefaults()))
+			.withMessage("Authentication is required");
+		verifyNoInteractions(this.authorizedClientManager, this.authorizationFailureHandler);
+	}
+
+	@Test
+	public void interceptWhenAuthenticatedWithNonOAuth2AndUseAuthenticatedClientRegistrationIdTrueThenThrowsIllegalStateException() {
+		this.requestInterceptor.setUseAuthenticatedClientRegistrationId(true);
+		this.requestInterceptor.setAuthorizationFailureHandler(this.authorizationFailureHandler);
+
+		bindToRestClient(withRequestInterceptor());
+		SecurityContext securityContext = new SecurityContextImpl();
+		securityContext.setAuthentication(new TestingAuthenticationToken("user", null));
+		SecurityContextHolder.setContext(securityContext);
+		assertThatIllegalStateException().isThrownBy(() -> performRequest(withDefaults()))
+			.withMessage(UNABLE_TO_DISCOVER_CLIENT_REGISTRATION_ID_MESSAGE);
+		verifyNoInteractions(this.authorizedClientManager, this.authorizationFailureHandler);
+	}
+
+	@Test
+	public void interceptWhenCustomSecurityContextHolderStrategySetThenUsed() {
+		this.requestInterceptor.setSecurityContextHolderStrategy(this.securityContextHolderStrategy);
+		given(this.authorizedClientManager.authorize(any(OAuth2AuthorizeRequest.class)))
+			.willReturn(this.authorizedClient);
+
+		bindToRestClient(withRequestInterceptor());
+		this.server.expect(requestTo(REQUEST_URI))
+			.andExpect(hasAuthorizationHeader(this.authorizedClient.getAccessToken()))
+			.andRespond(withApplicationJson());
+		SecurityContext securityContext = new SecurityContextImpl();
+		securityContext.setAuthentication(this.principal);
+		given(this.securityContextHolderStrategy.getContext()).willReturn(securityContext);
+		performRequest(withClientRegistrationId());
 		this.server.verify();
 		verify(this.authorizedClientManager).authorize(this.authorizeRequestCaptor.capture());
 		verify(this.securityContextHolderStrategy).getContext();
