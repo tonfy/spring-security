@@ -43,4 +43,15 @@
 
 	<!-- CSS content -->
 	<suppress files="CssUtils\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="HtmlTemplatesTests\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="DefaultLoginPageGeneratingFilter\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="DefaultLoginPageGeneratingFilterTests\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="DefaultLoginPageConfigurerTests\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="DefaultLogoutPageGeneratingFilter\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="DefaultLogoutPageGeneratingFilterTests\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="FormLoginBeanDefinitionParserTests\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="LoginPageGeneratingWebFilter\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="LoginPageGeneratingWebFilterTests\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="LogoutPageGeneratingWebFilter\.java" checks="SpringLeadingWhitespace"/>
+	<suppress files="LogoutPageGeneratingWebFilterTests\.java" checks="SpringLeadingWhitespace"/>
 </suppressions>
