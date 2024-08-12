@@ -226,9 +226,10 @@ public class DefaultLoginPageConfigurerTests {
 						+ "<html lang=\"en\">\n"
 						+ EXPECTED_HTML_HEAD
 						+ "  <body>\n"
-						+ "     <div class=\"content\">\n"
+						+ "    <div class=\"content\">\n"
 						+ "      <form class=\"login-form\" method=\"post\" action=\"/login\">\n"
 						+ "        <h2>Please sign in</h2>\n"
+						+ "        \n"
 						+ "        <p>\n"
 						+ "          <label for=\"username\" class=\"screenreader\">Username</label>\n"
 						+ "          <input type=\"text\" id=\"username\" name=\"username\" placeholder=\"Username\" required autofocus>\n"
@@ -237,11 +238,15 @@ public class DefaultLoginPageConfigurerTests {
 						+ "          <label for=\"password\" class=\"screenreader\">Password</label>\n"
 						+ "          <input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Password\" required>\n"
 						+ "        </p>\n"
+						+ "\n"
 						+ "<input name=\"" + token.getParameterName() + "\" type=\"hidden\" value=\"" + token.getToken() + "\" />\n"
 						+ "        <button type=\"submit\" class=\"primary\">Sign in</button>\n"
 						+ "      </form>\n"
-						+ "</div>\n"
-						+ "</body></html>");
+						+ "\n"
+						+ "\n"
+						+ "    </div>\n"
+						+ "  </body>\n"
+						+ "</html>");
 				});
 		// @formatter:on
 	}
@@ -267,21 +272,26 @@ public class DefaultLoginPageConfigurerTests {
 						+ "<html lang=\"en\">\n"
 						+ EXPECTED_HTML_HEAD
 						+ "  <body>\n"
-						+ "     <div class=\"content\">\n"
+						+ "    <div class=\"content\">\n"
 						+ "      <form class=\"login-form\" method=\"post\" action=\"/login\">\n"
 						+ "        <h2>Please sign in</h2>\n"
-						+ "<div class=\"alert alert-danger\" role=\"alert\">Bad credentials</div>        <p>\n"
+						+ "        <div class=\"alert alert-danger\" role=\"alert\">Bad credentials</div>\n"
+						+ "        <p>\n"
 						+ "          <label for=\"username\" class=\"screenreader\">Username</label>\n"
 						+ "          <input type=\"text\" id=\"username\" name=\"username\" placeholder=\"Username\" required autofocus>\n"
 						+ "        </p>\n" + "        <p>\n"
 						+ "          <label for=\"password\" class=\"screenreader\">Password</label>\n"
 						+ "          <input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Password\" required>\n"
 						+ "        </p>\n"
+						+ "\n"
 						+ "<input name=\"" + token.getParameterName() + "\" type=\"hidden\" value=\"" + token.getToken() + "\" />\n"
 						+ "        <button type=\"submit\" class=\"primary\">Sign in</button>\n"
 						+ "      </form>\n"
-						+ "</div>\n"
-						+ "</body></html>");
+						+ "\n"
+						+ "\n"
+						+ "    </div>\n"
+						+ "  </body>\n"
+						+ "</html>");
 				});
 		// @formatter:on
 	}
@@ -311,10 +321,11 @@ public class DefaultLoginPageConfigurerTests {
 						+ "<html lang=\"en\">\n"
 						+ EXPECTED_HTML_HEAD
 						+ "  <body>\n"
-						+ "     <div class=\"content\">\n"
+						+ "    <div class=\"content\">\n"
 						+ "      <form class=\"login-form\" method=\"post\" action=\"/login\">\n"
 						+ "        <h2>Please sign in</h2>\n"
-						+ "<div class=\"alert alert-success\" role=\"alert\">You have been signed out</div>        <p>\n"
+						+ "        <div class=\"alert alert-success\" role=\"alert\">You have been signed out</div>\n"
+						+ "        <p>\n"
 						+ "          <label for=\"username\" class=\"screenreader\">Username</label>\n"
 						+ "          <input type=\"text\" id=\"username\" name=\"username\" placeholder=\"Username\" required autofocus>\n"
 						+ "        </p>\n"
@@ -322,11 +333,15 @@ public class DefaultLoginPageConfigurerTests {
 						+ "          <label for=\"password\" class=\"screenreader\">Password</label>\n"
 						+ "          <input type=\"password\" id=\"password\" name=\"password\" placeholder=\"Password\" required>\n"
 						+ "        </p>\n"
+						+ "\n"
 						+ "<input name=\"" + token.getParameterName() + "\" type=\"hidden\" value=\"" + token.getToken() + "\" />\n"
 						+ "        <button type=\"submit\" class=\"primary\">Sign in</button>\n"
 						+ "      </form>\n"
-						+ "</div>\n"
-						+ "</body></html>");
+						+ "\n"
+						+ "\n"
+						+ "    </div>\n"
+						+ "  </body>\n"
+						+ "</html>");
 				});
 		// @formatter:on
 	}
@@ -356,9 +371,10 @@ public class DefaultLoginPageConfigurerTests {
 						+ "<html lang=\"en\">\n"
 						+ EXPECTED_HTML_HEAD
 						+ "  <body>\n"
-						+ "     <div class=\"content\">\n"
+						+ "    <div class=\"content\">\n"
 						+ "      <form class=\"login-form\" method=\"post\" action=\"/login\">\n"
 						+ "        <h2>Please sign in</h2>\n"
+						+ "        \n"
 						+ "        <p>\n"
 						+ "          <label for=\"username\" class=\"screenreader\">Username</label>\n"
 						+ "          <input type=\"text\" id=\"username\" name=\"username\" placeholder=\"Username\" required autofocus>\n"
@@ -371,8 +387,11 @@ public class DefaultLoginPageConfigurerTests {
 						+ "<input name=\"" + token.getParameterName() + "\" type=\"hidden\" value=\"" + token.getToken() + "\" />\n"
 						+ "        <button type=\"submit\" class=\"primary\">Sign in</button>\n"
 						+ "      </form>\n"
-						+ "</div>\n"
-						+ "</body></html>");
+						+ "\n"
+						+ "\n"
+						+ "    </div>\n"
+						+ "  </body>\n"
+						+ "</html>");
 				});
 		// @formatter:on
 	}
