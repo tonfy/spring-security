@@ -185,4 +185,25 @@ public class DefaultLoginPageGeneratingFilterTests {
 		assertThat(response.getContentAsString()).contains("Invalid credentials");
 	}
 
+	@Test
+	public void generateWhenOneTimeTokenLoginThenOttForm() throws Exception {
+		DefaultLoginPageGeneratingFilter filter = new DefaultLoginPageGeneratingFilter();
+		filter.setLoginPageUrl(DefaultLoginPageGeneratingFilter.DEFAULT_LOGIN_PAGE_URL);
+		filter.setOneTimeTokenEnabled(true);
+		filter.setOneTimeTokenAuthenticationRequestUrl("/ott/authenticate");
+		MockHttpServletResponse response = new MockHttpServletResponse();
+		filter.doFilter(new MockHttpServletRequest("GET", "/login"), response, this.chain);
+		assertThat(response.getContentAsString()).contains("Request a One-Time Token");
+		assertThat(response.getContentAsString()).contains("""
+				<form id="ott-form" class="login-form" method="post" action="/ott/authenticate">
+				        <h2>Request a One-Time Token</h2>
+				<p>
+				          <label for="ott-username" class="screenreader">Username</label>
+				          <input type="text" id="ott-username" name="null" placeholder="Username" required>
+				        </p>
+				          <button class="primary" type="submit" form="ott-form">Send Token</button>
+				      </form>
+				""");
+	}
+
 }

@@ -29,12 +29,15 @@ import org.springframework.security.web.access.intercept.FilterSecurityIntercept
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import org.springframework.security.web.authentication.ott.OneTimeTokenAuthenticationFilter;
+import org.springframework.security.web.authentication.ott.OneTimeTokenAuthenticationRequestFilter;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.security.web.authentication.rememberme.RememberMeAuthenticationFilter;
 import org.springframework.security.web.authentication.switchuser.SwitchUserFilter;
 import org.springframework.security.web.authentication.ui.DefaultLoginPageGeneratingFilter;
 import org.springframework.security.web.authentication.ui.DefaultLogoutPageGeneratingFilter;
+import org.springframework.security.web.authentication.ui.DefaultOneTimeTokenSubmitPageGeneratingFilter;
 import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 import org.springframework.security.web.authentication.www.DigestAuthenticationFilter;
 import org.springframework.security.web.context.SecurityContextHolderFilter;
@@ -87,6 +90,7 @@ final class FilterOrderRegistration {
 		this.filterToOrder.put(
 				"org.springframework.security.saml2.provider.service.web.Saml2WebSsoAuthenticationRequestFilter",
 				order.next());
+		put(OneTimeTokenAuthenticationRequestFilter.class, order.next());
 		put(X509AuthenticationFilter.class, order.next());
 		put(AbstractPreAuthenticatedProcessingFilter.class, order.next());
 		this.filterToOrder.put("org.springframework.security.cas.web.CasAuthenticationFilter", order.next());
@@ -95,10 +99,12 @@ final class FilterOrderRegistration {
 		this.filterToOrder.put(
 				"org.springframework.security.saml2.provider.service.web.authentication.Saml2WebSsoAuthenticationFilter",
 				order.next());
+		put(OneTimeTokenAuthenticationFilter.class, order.next());
 		put(UsernamePasswordAuthenticationFilter.class, order.next());
 		order.next(); // gh-8105
 		put(DefaultLoginPageGeneratingFilter.class, order.next());
 		put(DefaultLogoutPageGeneratingFilter.class, order.next());
+		put(DefaultOneTimeTokenSubmitPageGeneratingFilter.class, order.next());
 		put(ConcurrentSessionFilter.class, order.next());
 		put(DigestAuthenticationFilter.class, order.next());
 		this.filterToOrder.put(

@@ -32,6 +32,7 @@ import org.springframework.security.web.access.intercept.FilterSecurityIntercept
 import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.authentication.logout.LogoutFilter;
+import org.springframework.security.web.authentication.ott.OneTimeTokenAuthenticationFilter;
 import org.springframework.security.web.authentication.preauth.AbstractPreAuthenticatedProcessingFilter;
 import org.springframework.security.web.authentication.preauth.x509.X509AuthenticationFilter;
 import org.springframework.security.web.authentication.rememberme.RememberMeAuthenticationFilter;
@@ -150,6 +151,7 @@ public interface HttpSecurityBuilder<H extends HttpSecurityBuilder<H>>
 	 * {@docRoot}/org/springframework/security/cas/web/CasAuthenticationFilter.html">CasAuthenticationFilter</a></li>
 	 * <li>{@link org.springframework.security.oauth2.client.web.OAuth2LoginAuthenticationFilter}</li>
 	 * <li>{@link org.springframework.security.saml2.provider.service.web.authentication.Saml2WebSsoAuthenticationFilter}</li>
+	 * <li>{@link OneTimeTokenAuthenticationFilter}</li>
 	 * <li>{@link UsernamePasswordAuthenticationFilter}</li>
 	 * <li>{@link org.springframework.security.web.authentication.ui.DefaultLoginPageGeneratingFilter}</li>
 	 * <li>{@link org.springframework.security.web.authentication.ui.DefaultLogoutPageGeneratingFilter}</li>
